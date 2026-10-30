@@ -1,3 +1,201 @@
 # AdvisorDefense IRP and Reg S-P Readiness Assessment
 
-Work in progress. See docs/plan.md.
+A password-protected assessment for AdvisorDefense clients at `irp.advisordefense.com`. It does two things in one flow:
+
+- **IRP knowledge check.** Do the firm's people know what its written Incident Response Plan says and what to do?
+- **Reg S-P readiness check.** Does the firm's program meet amended Regulation S-P (17 CFR 248.30, Release No. 34-100155)?
+
+Every question shows the IRP section it tests and the Reg S-P requirement that section satisfies, so the client sees that their IRP is how they meet Reg S-P. It supports the **Incident Response Risk Assessment** service: run it after the IRP is delivered, and again at each annual IRP review. The PDF is a dated training and readiness record for the client's compliance file.
+
+CSIRT members and firm leadership answer 35 questions (knowledge and program readiness). Staff answer 11 knowledge questions drawn from Appendix E, the Supervised Person FAQ.
+
+Answers stay in the browser, in memory only. The PDF is built on the device. When someone downloads it, one Pages Function emails AdvisorDefense a summary (see [Completion notifications](#completion-notifications)). No analytics, trackers or third-party fonts. The only third-party request is Cloudflare Turnstile.
+
+Built from the Reg S-P Readiness Score app (`regsp.advisordefense.com`): same stack, design system, PDF engine, headers and copy rules. See `docs/plan.md` for the build plan and `docs/design-spec.md` for the design system.
+
+## Before launch
+
+1. Review and sign off every question in `docs/question-review.md` (regenerate with `npm run review:export`; your marks are kept).
+2. Decide each item in `docs/irp-template-discrepancies.md`. Three questions are held out until you do.
+3. Clear the `[VERIFY]` items in `src/content/sources.md`.
+
+## Run locally
+
+Requires Node 22.
+
+```
+npm install
+cp .dev.vars.example .dev.vars     # local test secrets, git-ignored
+npm run build
+npm run pages                      # the real gate and Functions at http://127.0.0.1:8799
+```
+
+Sign in with the code in `.dev.vars.example` (`smoke-test-code-2026-xyzw`).
+
+For live reload while editing screens, keep `npm run pages` running and also run `npm run dev` (http://localhost:5173). Vite proxies `/api` to port 8799, so sign-in and the client override work. Vite itself does not enforce the gate; only the Pages runtime does.
+
+## Tests
+
+```
+npm run test:unit
+```
+
+Node's test runner, no network. Covers the middleware and sessions, sign-in, the completion Function (Turnstile and Resend mocked), the content schema and copy lint, scoring for both question types, audience routing, client overrides and the login page's copies of the design system.
+
+```
+npx playwright install chromium                                  # first time only
+VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA npm run build
+npm run pages                                                    # one terminal
+npm run test:smoke                                               # another
+```
+
+The smoke test runs against the Pages runtime, so the access gate, the Functions and the CSP in `public/_headers` all apply. It signs in, takes the CSIRT and staff paths at 320px, phone and desktop widths (two runs keyboard only, one with forced colors and reduced motion), runs axe on every screen state, checks scores, the crosswalk and the PDF text, checks that exactly one completion notice is sent with only the disclosed fields, that the report still downloads when the notice fails, and that the bundle and APIs are blocked before sign-in. Screenshots, PDFs and PDF text go to `smoke-output/` (git-ignored). The test serves a stand-in for the Turnstile script and answers `/api/completion` itself.
+
+## Access control
+
+`functions/_middleware.js` gates every request: HTML, JS, CSS, images and `/api/*`. Before sign-in, only the login page (`public/login/`), `POST /api/login`, `POST /api/logout` and the favicon are served. The JS bundle that holds the question bank is never served without a session. Pages get a redirect to `/login/`; everything else gets 401.
+
+- **Access codes.** Each client gets a random 20-character code (about 99 bits). The `ACCESS_CODES` secret maps the SHA-256 hash of each code to `{ "clientId", "firmName", "expires" }`. No plaintext codes exist in the repo, the secret or the logs. The firm name prefills from the code. A code works through the end of its `expires` date (UTC).
+- **Sessions.** A valid code sets `__Host-irp_session`: `HttpOnly; Secure; SameSite=Strict; Path=/`, 8 hours or until the code expires, whichever is first. It carries only the client ID and expiry, signed with HMAC-SHA256 (`SESSION_SECRET`). Every request rechecks the signature, the session expiry and the code's own expiry, so expiring or removing a code ends live sessions at the next request.
+- **Brute force.** Turnstile on the sign-in form, one generic error for every failure, and a rate limiting rule (below).
+- **Caching.** Gated responses are `Cache-Control: private` so no shared cache can serve them to someone not signed in.
+
+### Onboard a client
+
+```
+npm run add-client acme-wealth "Acme Wealth Partners" 2027-12-31
+```
+
+It prints the code once and a JSON entry. Then:
+
+1. In Cloudflare Pages, Settings, Variables and Secrets (Production), edit `ACCESS_CODES` and add the entry to the JSON object. Secrets cannot be read back, so keep the current JSON in AdvisorDefense's password manager and edit it there first.
+2. Redeploy (Deployments, latest, Retry deployment). Secrets take effect on the next deployment.
+3. Send the code to the client separately from the link, for example by phone or a separate email.
+
+To revoke a client, remove its entry (or set `expires` to a past date) and redeploy. To issue a new code for the same client, run the script again with the same `clientId` and replace the old entry.
+
+### Rate limiting rule (dashboard)
+
+Security, WAF, Rate limiting rules, Create rule on the `advisordefense.com` zone:
+
+- If incoming requests match: Hostname equals `irp.advisordefense.com` AND URI Path equals `/api/login` AND Request Method equals `POST`
+- Characteristics: IP. Rate: 10 requests per 1 minute. Action: Block for 10 minutes.
+
+[VERIFY] The Free plan allows one rate limiting rule per zone. If the Reg S-P app's `/api/lead` rule already uses it, either combine both paths into one rule (URI Path is in `/api/login /api/lead`) or upgrade the plan.
+
+### Switching to Cloudflare Access
+
+If you would rather use email one-time PINs than access codes:
+
+1. Zero Trust, Access, Applications, Add a self-hosted application for `irp.advisordefense.com`. Session duration 8 hours.
+2. Add one policy per client: Include, Emails ending in `@clientdomain.com`. Login method: One-time PIN.
+3. In `functions/_middleware.js`, replace the `currentClient()` check with a check of the `Cf-Access-Jwt-Assertion` header against your team's Access certificates, and map the email domain to a `clientId` (a small `ACCESS_DOMAINS` JSON secret works). Delete `public/login/`, `functions/api/login.js`, `functions/api/logout.js` and `scripts/add-client.mjs`.
+4. Point the header's Sign out link at `/cdn-cgi/access/logout`.
+
+Access gives per-person identity and audit logs; codes are simpler for a firm to share with all its staff. Codes are the default because staff often do not have a client-domain email the firm wants to register.
+
+## Per-client tailoring
+
+Client IRPs are tailored, so a client can have `src/content/clients/<clientId>.json`. It is merged over the default bank after sign-in. Overrides are compiled into the Functions at build time and served one client at a time by `/api/client`, so one client never sees another's. The repo ships with none.
+
+```json
+{
+  "irpVersion": "Acme Wealth Partners IRP, version 2.1 (March 2027)",
+  "facts": {
+    "csirtLead": "Incident Response Lead",
+    "secondaryLead": "Deputy Incident Response Lead",
+    "level1Response": "30 minutes",
+    "level1Updates": "every 30 minutes",
+    "carrier": "Acme Mutual Cyber"
+  },
+  "hide": ["roles_tabletop"],
+  "replace": {
+    "crit_level1_response": { "options": [ { "label": "Within 30 minutes, with status updates every 30 minutes", "correct": true }, { "label": "..." }, { "label": "..." }, { "label": "..." } ] }
+  },
+  "add": [ { "id": "acme_wire_callback", "section": 4, "type": "knowledge", "...": "full question object" } ]
+}
+```
+
+- `facts` fill the `{{placeholders}}` in the default questions. If a tailored fact makes a distractor correct (for example a client whose Level 1 time is 4 hours), `replace` that question's options too.
+- `hide` removes questions by ID. `replace` merges fields into a question. `add` appends full questions, placed at the end of their section.
+- `npm run test:unit` validates every override file (one correct option, 2/1/0 points, required references, no unfilled placeholders).
+
+## Edit content
+
+| File | What it controls |
+|---|---|
+| `src/content/questions.json` | Sections (with crosswalk text), questions, options, explanations, exam findings, IRP and rule references, tie-ins, default facts |
+| `src/content/config.json` | Product name, report title, IRP version, contact details, disclaimer, knowledge band thresholds, next steps by audience |
+| `src/content/sources.md` | Verification log for every rule reference, date and number |
+| `docs/question-review.md` | Generated review and sign-off file (`npm run review:export`) |
+| `docs/irp-template-discrepancies.md` | Where the IRP template and the rule disagree, with held-out question drafts |
+
+Question rules (enforced by `tests/content.test.mjs`):
+
+- Every question needs `id`, `section` (1 to 8), `type`, `audience`, `title`, `question`, `options`, `irp_ref`, `regsp_ref` (a CFR cite, or `none:` with a reason), `tie_in` and `mapped_service`.
+- `knowledge`: four options, exactly one `"correct": true`, plus `explanation`. The correct answer must not stand out by length. Options are shuffled per visit. No feedback during the quiz.
+- `readiness`: options score 2, 1, 0 in order, plus `help` and `exam_finding`. CSIRT path only.
+- `audience`: `["csirt"]` or `["csirt", "staff"]`. The staff path should stay at 10 to 12 questions.
+- Copy: plain English, short sentences. Use "aligned" and "exam-ready". Never "compliant", "certified", "pass" or "fail". No em dashes, en dashes or double hyphens. Role titles, never personal names.
+
+Scoring: Program Readiness uses the Reg S-P app's math (section percent, averaged over sections with readiness questions; 85 Exam-ready, 60 Gaps an examiner would note). IRP Knowledge is percent correct (90 Ready to respond, 70 Refresher recommended, below that Retraining needed; thresholds in `config.json`).
+
+To refresh the IRP text after the template changes: put the new .docx in `reference/` and run `npm run extract:irp reference/<file>.docx reference/irp-template.md`.
+
+The login page cannot load the gated bundle, so `public/login/` carries copies of `brand.css`, `base.css`, `components.css`, the fonts and the logo. `npm run build` refreshes them (`npm run sync:login` does it alone), and a unit test fails if they drift.
+
+## Completion notifications
+
+When someone clicks Download my report, the browser posts to `/api/completion`, which emails AdvisorDefense through Resend. It sends the person's name, work email, role, both scores, each section's score and the IDs of the questions they missed. The client comes from the session cookie, never from the request. Answers are never sent. The report screen says exactly this before download. One notice per visit; the PDF never waits for it, and downloads even if it fails.
+
+Security model: POST only, allowed origins only, JSON only, 4 KB cap, a signed-in session, every field validated (question IDs against that client's bank), Turnstile (action `completion`), HTML-escaped email with no line breaks in the subject, recipient from configuration, outcome-only logs.
+
+## Deploy to Cloudflare Pages
+
+1. Workers and Pages, Create, Pages, Import an existing Git repository. Grant the Cloudflare GitHub app access to this repository only. Project name: `irp-assessment` (if you choose another, update `DEFAULT_ORIGINS` in `functions/_lib/http.js` or set `ALLOWED_ORIGINS`).
+2. Production branch `main`. Framework preset None. Build command `npm run build`. Output directory `dist`.
+3. Set every variable and secret in the table below, then deploy.
+4. Custom domains: add `irp.advisordefense.com`. The zone is in the same account, so DNS is created automatically.
+5. Settings, Builds, Branch control: Preview branch None. Only `main` is published.
+6. On GitHub, protect `main` with a ruleset: pull request required, no force pushes, no deletion.
+7. Create the rate limiting rule above and the Turnstile widget (hostnames `irp.advisordefense.com` and `irp-assessment.pages.dev`).
+
+### Zone settings that must keep excluding this site
+
+The site runs on the `advisordefense.com` zone with the main website. Two zone settings broke the Reg S-P app on 2026-10-29 and must exclude this host too:
+
+- **Response Header Transform Rule** that sets the main website's Content-Security-Policy. Add `irp.advisordefense.com` to its exclusion (Hostname is not in `regsp.advisordefense.com irp.advisordefense.com`). Browsers enforce every CSP they receive, so the main site's policy would break the PDF logo.
+- **Web Analytics (RUM) automatic injection** must stay off for the zone. It injects a script this CSP blocks and conflicts with the no-analytics rule.
+
+After any zone or deploy change, sign in, open the browser console and run `fetch(location.href).then(r => r.headers.get('content-security-policy'))`. It must return exactly the policy in `public/_headers`. Also confirm, signed out, that `https://irp.advisordefense.com/assets/<bundle>.js` returns 401 (check the bundle name in View Source after signing in). [VERIFY] after the first deploy that the zone's cache rules do not cache `/assets/*` in front of the Pages Function; the responses are marked `private`, but a "Cache Everything" rule would override that.
+
+### Variables and secrets (Production)
+
+| Name | Type | Value |
+|---|---|---|
+| `NODE_VERSION` | Plaintext | `22` |
+| `ACCESS_CODES` | Secret | JSON: SHA-256 of each access code mapped to `{ "clientId", "firmName", "expires": "YYYY-MM-DD" }`. Built with `npm run add-client`. |
+| `SESSION_SECRET` | Secret | At least 32 random bytes, for example `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
+| `VITE_TURNSTILE_SITE_KEY` | Plaintext | Turnstile site key (public). Read at build time by the app and at runtime by the login page. Without it, the completion notice and its disclosure are off. |
+| `TURNSTILE_SITE_KEY` | Plaintext, optional | Overrides the site key served to the login page. Normally leave unset. |
+| `TURNSTILE_SECRET_KEY` | Secret | Turnstile secret key. Sign-in refuses to run without it. |
+| `RESEND_API_KEY` | Secret | Resend key with Sending access, restricted to the sending domain |
+| `RESEND_FROM_EMAIL` | Plaintext | Sender on the verified Resend domain, for example `IRP Readiness <notify@notify.advisordefense.com>` |
+| `COMPLETION_NOTIFY_EMAIL` | Plaintext | Inbox for completion notices (comma-separated for more than one) |
+| `ALLOWED_ORIGINS` | Plaintext, optional | Origins allowed to post. Default `https://irp.advisordefense.com,https://irp-assessment.pages.dev` |
+| `DEV_SKIP_TURNSTILE` | Local only | Never set in Cloudflare. In `.dev.vars` it skips Turnstile for localhost requests only. |
+
+### Rotating keys
+
+- **Resend** (every 90 days, or at once if exposed): create a new key in Resend, update `RESEND_API_KEY`, redeploy, complete a test assessment, then revoke the old key.
+- **Turnstile secret**: rotate on the widget's page in the Turnstile dashboard, update `TURNSTILE_SECRET_KEY`, redeploy, sign in to confirm.
+- **SESSION_SECRET** (yearly, or at once if exposed): set a new random value and redeploy. Everyone currently signed in is signed out; nothing else is lost because answers are never stored.
+- **Access codes**: issue a new code with `npm run add-client` for each annual review, replace the client's entry, redeploy and send the new code. Remove codes for former clients. A code that may have been shared too widely is replaced the same way.
+
+## Design and accessibility
+
+Same tokens, type scale, motion and QA checklist as the Reg S-P app (`docs/design-spec.md`). Colors are plain hex variables in `src/styles/brand.css`; the PDF reads them at runtime. Before release, run the design-spec QA checklist: axe on every screen state, keyboard-only run, 320px and 200% zoom, Windows forced colors, reduced motion, no `style=""` or `<style>` in HTML strings, copy lint, and the PDF opened in Acrobat and macOS Preview. The smoke test automates all but the last item and a visual check of forced colors.
+
+## Out of scope for v1
+
+See `docs/roadmap.md`.

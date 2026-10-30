@@ -1,5 +1,5 @@
 // Onboards a client without touching code.
-// Usage: npm run add-client -- <clientId> "<Firm Name>" <YYYY-MM-DD>
+// Usage: npm run add-client <clientId> "<Firm Name>" <YYYY-MM-DD>
 //
 // Prints a new access code once, and the JSON entry to merge into the ACCESS_CODES secret.
 // The code itself is never stored. Send it to the client by a separate channel from the URL.
@@ -8,7 +8,7 @@ import { generateCode, hashCode } from '../functions/_lib/session.js';
 const [clientId, firmName, expires] = process.argv.slice(2);
 
 if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(clientId || '') || !firmName || !/^\d{4}-\d{2}-\d{2}$/.test(expires || '')) {
-  console.error('Usage: npm run add-client -- <clientId> "<Firm Name>" <YYYY-MM-DD>');
+  console.error('Usage: npm run add-client <clientId> "<Firm Name>" <YYYY-MM-DD>');
   console.error('clientId: lowercase letters, digits and dashes, for example "acme-wealth".');
   process.exit(1);
 }

@@ -2280,4 +2280,13 @@
     color: GrayText;
     border-color: GrayText;
   }
+
+  /* The reversed logo is white and gray, so keep its navy backing when the footer turns to Canvas. */
+  .logo-footer {
+    forced-color-adjust: none;
+    background: var(--ad-navy-800);
+    padding: 6px 8px;
+    border-radius: var(--ad-radius-sm);
+    box-sizing: content-box;
+  }
 }

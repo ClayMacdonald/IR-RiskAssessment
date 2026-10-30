@@ -7,4 +7,4 @@ ACCESS_CODES={"2e21573c4b3012ce3007ee1a0419d723336132d4d72116f307e9ac784bb94c66"
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
 # Skips server-side Turnstile verification, and only for requests to localhost or 127.0.0.1.
 DEV_SKIP_TURNSTILE=1
-ALLOWED_ORIGINS=http://localhost:8799,http://127.0.0.1:8799
+ALLOWED_ORIGINS=http://localhost:8799,http://127.0.0.1:8799,http://localhost:5173

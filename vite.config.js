@@ -6,4 +6,8 @@ export default defineConfig({
     modulePreload: { polyfill: false },
     assetsInlineLimit: 0,
   },
+  // In development, the Functions (sign-in, client, completion) run in "npm run pages" on port 8799.
+  server: {
+    proxy: { '/api': 'http://127.0.0.1:8799' },
+  },
 });

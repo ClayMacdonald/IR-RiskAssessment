@@ -1,4 +1,7 @@
-# Reg S-P Readiness Score: Design Spec (v2)
+# Design Spec (from the Reg S-P Readiness Score, v2)
+
+**IRP assessment changes (2026-10-30).** This app reuses the spec below unchanged except: the landing screen is an intro behind sign-in (same hero, with a "How your IRP meets Reg S-P" card in place of the sample results and no facts section); the gate is a report screen with no lead form; results show two score rings side by side (one for staff), a crosswalk table (stacked rows under 720px) and findings grouped by section, with nothing locked; the PDF title band reads IRP AND REG S-P READINESS REPORT and the score panel is two panels; the login page reuses the same tokens through copies in public/login/. Forced-colors rules were added for selection, progress, status and the footer logo. The QA checklist item on lead notifications now applies to the completion notice (report screen disclosure, intro trust strip, details privacy row).
+
 
 This is the reference for the v2 redesign. It was produced by a design review of the v1 screens and implemented in this repo.
 
