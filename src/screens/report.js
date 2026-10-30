@@ -1,5 +1,6 @@
 import config from '../content/config.json';
-import { completionPayload, notificationsEnabled, prepareCheck, submitCompletion } from '../completion.js';
+import { notificationsEnabled, prepareCheck, submitCompletion } from '../completion.js';
+import { completionPayload } from '../payload.js';
 import { buildResults } from '../scoring.js';
 import { icon } from '../components/icons.js';
 import { el } from '../util.js';

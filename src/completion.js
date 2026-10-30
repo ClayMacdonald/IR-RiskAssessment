@@ -78,24 +78,6 @@ export function prepareCheck(container) {
   return { getToken };
 }
 
-// The exact payload, built from results. Exported so tests and the disclosure stay in step.
-export function completionPayload(details, results) {
-  return {
-    name: details.name,
-    email: details.email,
-    role: details.role,
-    readinessScore: results.readiness ? results.readiness.score : null,
-    knowledgeScore: results.knowledge.score,
-    sections: results.crosswalk.map((row) => ({
-      id: row.id,
-      readiness: row.readiness ? row.readiness.percent : null,
-      correct: row.knowledge ? row.knowledge.correct : 0,
-      total: row.knowledge ? row.knowledge.total : 0,
-    })),
-    missed: results.missed.map((q) => q.id),
-  };
-}
-
 // Sends the notification. Resolves { ok } and never throws.
 export async function submitCompletion(payload, check) {
   if (!notificationsEnabled() || !check) return { ok: false, skipped: true };
