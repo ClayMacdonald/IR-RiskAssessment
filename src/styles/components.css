@@ -719,6 +719,7 @@
 
 .hero-copy .eyebrow {
   margin-bottom: 16px;
+  color: var(--ad-sky-300);
 }
 
 .display {
@@ -1939,5 +1940,344 @@
 
   .w50 {
     width: 50%;
+  }
+}
+
+/* ===== IRP assessment additions ===== */
+.header-signout {
+  min-height: 40px;
+  padding: 8px 4px;
+  background: none;
+  border: none;
+  border-radius: var(--ad-radius-xs);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.field-hint {
+  margin-top: 6px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--ad-text-muted);
+}
+
+/* Intro: how the IRP meets Reg S-P */
+.tie-title {
+  font-size: 17px;
+  line-height: 26px;
+  margin-bottom: 16px;
+}
+
+.tie-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tie-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  border: 1px solid var(--ad-border-subtle);
+  border-left: 3px solid var(--ad-sky-500);
+  border-radius: var(--ad-radius-sm);
+  background: var(--ad-navy-50);
+}
+
+.tie-label {
+  font-weight: 700;
+  color: var(--ad-navy-800);
+}
+
+.tie-irp,
+.tie-rule {
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--ad-text-body);
+}
+
+.tie-foot {
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--ad-text-muted);
+}
+
+/* Question */
+.seg-5 {
+  flex-grow: 5;
+}
+
+.seg-6 {
+  flex-grow: 6;
+}
+
+.seg-7 {
+  flex-grow: 7;
+}
+
+.seg-8 {
+  flex-grow: 8;
+}
+
+.q-kind {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ad-navy-700);
+}
+
+.q-kind-readiness {
+  color: var(--ad-sky-700);
+}
+
+.question-refs,
+.finding-refs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 24px;
+  margin: 20px 0 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--ad-border-subtle);
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.finding-refs {
+  margin-top: 10px;
+  padding-top: 0;
+  border-top: none;
+}
+
+.question-refs dt,
+.finding-refs dt {
+  font-weight: 600;
+  color: var(--ad-navy-700);
+}
+
+.question-refs dd,
+.finding-refs dd {
+  margin: 0;
+  color: var(--ad-text-muted);
+}
+
+/* Results */
+.score-pair {
+  margin-top: 32px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+.score-panel .card-title {
+  margin-bottom: 16px;
+}
+
+.score-note {
+  margin-top: 16px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--ad-text-muted);
+}
+
+.card-intro {
+  margin: 4px 0 16px;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--ad-text-body);
+}
+
+.crosswalk-card {
+  margin-top: 24px;
+}
+
+.crosswalk {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.crosswalk th,
+.crosswalk td {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px 12px 12px 0;
+  border-top: 1px solid var(--ad-border-subtle);
+}
+
+.crosswalk thead th {
+  border-top: none;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--ad-navy-700);
+}
+
+.crosswalk tbody th {
+  font-weight: 700;
+  color: var(--ad-navy-800);
+}
+
+.xw-result .chip {
+  margin: 0 6px 6px 0;
+}
+
+/* Phones: each row becomes a small labeled block. */
+@media (max-width: 719px) {
+  .crosswalk thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .crosswalk tr,
+  .crosswalk th,
+  .crosswalk td {
+    display: block;
+  }
+
+  .crosswalk tbody tr {
+    padding: 12px 0;
+    border-top: 1px solid var(--ad-border-subtle);
+  }
+
+  .crosswalk tbody th,
+  .crosswalk td {
+    border-top: none;
+    padding: 2px 0;
+  }
+
+  .crosswalk td::before {
+    content: attr(data-label) ': ';
+    font-weight: 600;
+    color: var(--ad-navy-700);
+  }
+
+  .crosswalk td.xw-result::before {
+    display: block;
+  }
+}
+
+.findings-sub {
+  margin: 20px 0 4px;
+  font-size: 17px;
+  line-height: 26px;
+}
+
+.findings-sub:first-of-type {
+  margin-top: 8px;
+}
+
+.findings-empty {
+  color: var(--ad-text-muted);
+}
+
+.finding h4,
+.finding h5 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+  color: var(--ad-navy-800);
+}
+
+.missed-section {
+  margin: 16px 0 0;
+  font-size: 15px;
+  line-height: 22px;
+  font-weight: 700;
+  color: var(--ad-navy-700);
+}
+
+.finding-missed .finding-num {
+  color: var(--ad-warning-700);
+  background: var(--ad-warning-50);
+  border-color: var(--ad-warning-200);
+}
+
+.finding-q,
+.finding-answer {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--ad-text-body);
+}
+
+.finding-answer {
+  color: var(--ad-text-muted);
+}
+
+.finding-correct {
+  margin-top: 4px;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--ad-ink);
+}
+
+.finding-correct strong {
+  color: var(--ad-success-700);
+}
+
+/* Report */
+.report-intro {
+  color: var(--ad-text-body);
+}
+
+.aside-title {
+  font-size: 17px;
+  line-height: 26px;
+  margin-bottom: 12px;
+}
+
+@media (min-width: 768px) {
+  .score-pair {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .score-pair-single {
+    grid-template-columns: minmax(0, 440px);
+  }
+}
+
+/* Windows high contrast: keep selection, progress and status visible without color. */
+@media (forced-colors: active) {
+  .option[aria-checked='true'] {
+    outline: 3px solid Highlight;
+    outline-offset: -3px;
+  }
+
+  .seg-tick,
+  .bar-track {
+    border: 1px solid CanvasText;
+  }
+
+  .seg-tick.is-done,
+  .seg-tick.is-current,
+  .bar-fill {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+
+  .chip,
+  .badge,
+  .tie-row,
+  .notice {
+    border: 1px solid CanvasText;
+  }
+
+  .btn:disabled {
+    color: GrayText;
+    border-color: GrayText;
   }
 }

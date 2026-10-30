@@ -1,8 +1,9 @@
-// Lead notification. When someone downloads their report, AdvisorDefense is emailed their
-// name, work email, role, firm name and score. Their answers never leave the browser.
+// Completion notification. When someone downloads their report, AdvisorDefense is emailed their
+// name, work email, role, both scores, section scores and the IDs of the questions they missed.
+// Their answers never leave the browser. The server adds the client from the session cookie.
 //
-// The request goes to the Pages Function at /api/lead, which verifies a Cloudflare Turnstile
-// token and sends the email (functions/api/lead.js). Notification never blocks the report:
+// The request goes to the Pages Function at /api/completion, which verifies a Cloudflare Turnstile
+// token and sends the email (functions/api/completion.js). Notification never blocks the report:
 // any failure is swallowed and the PDF still downloads.
 
 const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
@@ -11,7 +12,7 @@ const TOKEN_TIMEOUT_MS = 20000;
 
 let scriptPromise = null;
 
-export function leadNotificationsEnabled() {
+export function notificationsEnabled() {
   return Boolean(SITE_KEY);
 }
 
@@ -35,15 +36,15 @@ function loadTurnstile() {
 
 // Renders an invisible-unless-needed Turnstile widget into `container`.
 // Returns getToken(), which runs the challenge and resolves with a single-use token.
-export function prepareLeadCheck(container) {
-  if (!leadNotificationsEnabled() || !container) return { getToken: () => Promise.reject(new Error('disabled')) };
+export function prepareCheck(container) {
+  if (!notificationsEnabled() || !container) return { getToken: () => Promise.reject(new Error('disabled')) };
   let widgetId = null;
   let pending = null;
 
   const ready = loadTurnstile().then((ts) => {
     widgetId = ts.render(container, {
       sitekey: SITE_KEY,
-      action: 'lead',
+      action: 'completion',
       appearance: 'interaction-only',
       execution: 'execute',
       callback: (token) => pending?.resolve(token),
@@ -77,22 +78,33 @@ export function prepareLeadCheck(container) {
   return { getToken };
 }
 
-// Sends the lead. Resolves { ok } and never throws.
-export async function submitLead(data, check) {
-  if (!leadNotificationsEnabled() || !check) return { ok: false, skipped: true };
+// The exact payload, built from results. Exported so tests and the disclosure stay in step.
+export function completionPayload(details, results) {
+  return {
+    name: details.name,
+    email: details.email,
+    role: details.role,
+    readinessScore: results.readiness ? results.readiness.score : null,
+    knowledgeScore: results.knowledge.score,
+    sections: results.crosswalk.map((row) => ({
+      id: row.id,
+      readiness: row.readiness ? row.readiness.percent : null,
+      correct: row.knowledge ? row.knowledge.correct : 0,
+      total: row.knowledge ? row.knowledge.total : 0,
+    })),
+    missed: results.missed.map((q) => q.id),
+  };
+}
+
+// Sends the notification. Resolves { ok } and never throws.
+export async function submitCompletion(payload, check) {
+  if (!notificationsEnabled() || !check) return { ok: false, skipped: true };
   try {
     const turnstileToken = await check.getToken();
-    const res = await fetch('/api/lead', {
+    const res = await fetch('/api/completion', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: data.name,
-        email: data.email,
-        role: data.role,
-        firmName: data.firmName,
-        score: data.score,
-        turnstileToken,
-      }),
+      body: JSON.stringify({ ...payload, turnstileToken }),
       keepalive: true,
       credentials: 'same-origin',
     });

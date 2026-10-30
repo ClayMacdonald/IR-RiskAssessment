@@ -1,13 +1,13 @@
 import { icon } from './icons.js';
 
-const STEPS = ['Your firm', 'Assessment', 'Results'];
-const STEP_FOR_SCREEN = { details: 0, question: 1, results: 2, gate: 2 };
+const STEPS = ['Your details', 'Assessment', 'Results'];
+const STEP_FOR_SCREEN = { details: 0, question: 1, results: 2, report: 2 };
 
-// Slim progress strip under the header. Hidden on the landing screen.
+// Slim progress strip under the header. Hidden on the intro screen.
 export function renderStepper(screen) {
   const current = STEP_FOR_SCREEN[screen];
   if (current == null) return null;
-  const width = screen === 'results' ? 'container-results' : screen === 'gate' ? 'container-gate' : 'container';
+  const width = screen === 'results' ? 'container-results' : screen === 'report' ? 'container-gate' : 'container';
 
   const items = STEPS.map((label, i) => {
     const state = i < current ? 'complete' : i === current ? 'current' : 'upcoming';

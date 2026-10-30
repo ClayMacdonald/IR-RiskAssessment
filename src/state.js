@@ -1,12 +1,18 @@
 // In-memory only. Nothing is written to storage, cookies or the URL.
+// (The only cookie is the HttpOnly session cookie set by the server at sign-in.)
 export const state = {
-  screen: 'landing',
+  screen: 'intro',
+  // Set at start-up from /api/client: this client's bank, with any override merged.
+  bank: null,
+  clientId: '',
   questionIndex: 0,
-  details: { firmName: '', name: '', aum: '', examined: '' },
+  details: { firmName: '', name: '', email: '', role: '' },
+  // Question id -> option index in the bank. Never the shuffled display position.
   answers: {},
-  lead: { name: '', email: '', role: '' },
-  // Set after the PDF downloads. Unlocks the finding details on the results screen.
+  // Question id -> display order of option indexes. Set once per visit.
+  optionOrder: {},
+  completedAt: null,
   reportDownloaded: false,
-  // Set when the lead notification has been attempted, so "Download again" does not send it twice.
-  leadNotified: false,
+  // Set when the completion notification has been attempted, so "Download again" does not resend it.
+  notified: false,
 };

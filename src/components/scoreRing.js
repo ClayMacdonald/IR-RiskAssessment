@@ -4,11 +4,11 @@ const C = 2 * Math.PI * R;
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 // Circular score gauge. Geometry and animation are set through element.style (CSP-safe).
-export function scoreRing({ score, band, size = 168 }) {
+export function scoreRing({ score, band, label = 'Overall score', size = 168 }) {
   const wrap = document.createElement('div');
   wrap.className = `score-ring score-ring-${size < 150 ? 'sm' : 'lg'}`;
   wrap.setAttribute('role', 'img');
-  wrap.setAttribute('aria-label', `Overall score ${score} out of 100, ${band.label}`);
+  wrap.setAttribute('aria-label', `${label} ${score} out of 100, ${band.label}`);
   wrap.innerHTML = `
     <svg viewBox="0 0 160 160" aria-hidden="true" focusable="false">
       <circle class="ring-track" cx="80" cy="80" r="${R}" fill="none" stroke-width="12"/>

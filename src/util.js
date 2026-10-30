@@ -12,3 +12,7 @@ export function el(html) {
   tpl.innerHTML = html.trim();
   return tpl.content.firstElementChild;
 }
+
+export function formatWhen(date) {
+  return date.toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' });
+}

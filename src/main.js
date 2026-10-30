@@ -5,22 +5,27 @@ import './styles/brand.css';
 import './styles/base.css';
 import './styles/components.css';
 
+import base from './content/questions.json';
+import config from './content/config.json';
 import { state } from './state.js';
+import { buildBank } from './bank.js';
+import { optionOrders } from './scoring.js';
 import { renderHeader } from './components/header.js';
 import { renderFooter } from './components/footer.js';
 import { renderStepper } from './components/stepper.js';
-import { renderLanding } from './screens/landing.js';
+import { renderIntro } from './screens/intro.js';
 import { renderDetails } from './screens/details.js';
 import { renderQuestion } from './screens/question.js';
 import { renderResults } from './screens/results.js';
-import { renderGate } from './screens/gate.js';
+import { renderReport } from './screens/report.js';
+import { el } from './util.js';
 
 const screens = {
-  landing: renderLanding,
+  intro: renderIntro,
   details: renderDetails,
   question: renderQuestion,
   results: renderResults,
-  gate: renderGate,
+  report: renderReport,
 };
 
 const app = document.getElementById('app');
@@ -28,7 +33,6 @@ const stepperSlot = document.createElement('div');
 const main = document.createElement('main');
 main.id = 'main';
 main.tabIndex = -1;
-app.replaceChildren(renderHeader(), stepperSlot, main, renderFooter());
 
 let firstRender = true;
 
@@ -61,4 +65,32 @@ function render() {
   }
 }
 
-render();
+// Loads this client's firm name and content override. A missing or expired session goes back to sign-in.
+async function start() {
+  app.replaceChildren(renderHeader(), stepperSlot, main, renderFooter());
+  try {
+    const res = await fetch('/api/client', { headers: { Accept: 'application/json' }, credentials: 'same-origin' });
+    if (res.status === 401) {
+      window.location.replace('/login/');
+      return;
+    }
+    if (!res.ok) throw new Error('client_unavailable');
+    const client = await res.json();
+    state.clientId = client.clientId;
+    state.details.firmName = client.firmName || '';
+    state.bank = buildBank(base, client.override, config.irpVersion);
+  } catch {
+    main.replaceChildren(
+      el(`<div class="container"><div class="title-block">
+        <h1>We could not load the assessment</h1>
+        <p class="lead">Check your connection and reload the page. If it keeps happening, contact AdvisorDefense at ${config.email}.</p>
+      </div></div>`)
+    );
+    return;
+  }
+  const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+  state.optionOrder = optionOrders(state.bank.questions, seed);
+  render();
+}
+
+start();
