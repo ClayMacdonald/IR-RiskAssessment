@@ -1,286 +1,358 @@
-// End-to-end click-through: landing, details, 14 questions, results, gate, PDF.
-// Usage: node tests/smoke.mjs [baseUrl] [screenshotDir]
-// With SMOKE_CSP=1, applies the CSP from public/_headers to every response so violations surface as errors.
+// End-to-end smoke test against the production build served by the real Pages runtime
+// (wrangler pages dev), so the access gate, the Functions and the _headers CSP all apply.
+//
+// Usage (see README, "Smoke test"):
+//   VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA npm run build
+//   npm run pages                      # serves dist/ at http://127.0.0.1:8799 using .dev.vars
+//   npm run test:smoke                 # in another terminal
+//
+// node tests/smoke.mjs [baseUrl] [outputDir]. Code: SMOKE_CODE (default matches .dev.vars.example).
+//
+// Runs:
+//   A  CSIRT path, desktop, keyboard only, mixed answers, 200% zoom check, Download again
+//   B  Staff path, phone, mouse, all correct, completion notification fails (502)
+//   C  CSIRT path, 320px, mouse, all worst answers
+//   D  Staff path, desktop, keyboard only, forced colors and reduced motion
+// Plus unauthenticated checks: bundle, API and pages blocked before sign-in; generic error for a bad code.
 import { chromium } from 'playwright';
-import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
+import AxeBuilder from '@axe-core/playwright';
+import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PDFParse } from 'pdf-parse';
+import base from '../src/content/questions.json' with { type: 'json' };
+import config from '../src/content/config.json' with { type: 'json' };
+import { buildBank } from '../src/bank.js';
+import { buildResults, correctIndex, questionsFor } from '../src/scoring.js';
+import { completionPayload } from '../src/payload.js';
 
-const BASE = process.argv[2] || 'http://localhost:5173';
+const BASE = process.argv[2] || 'http://127.0.0.1:8799';
 const OUT = process.argv[3] || 'smoke-output';
+const CODE = process.env.SMOKE_CODE || 'smoke-test-code-2026-xyzw';
+const FIRM = 'Smoke Test Advisors';
 mkdirSync(OUT, { recursive: true });
 
-// Lead notification mocks. The page loads Turnstile from this URL; the test serves a stand-in that
-// issues a fixed token, so no request reaches Cloudflare. /api/lead is answered by the test too.
+// The page loads Turnstile from this URL. The test serves a stand-in that issues a fixed token.
 const TURNSTILE_JS = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 const FAKE_TURNSTILE = `window.turnstile = {
   _w: {}, _n: 0,
-  render(el, o) { const id = 'w' + (++this._n); this._w[id] = o; window.__tsOptions = o; return id; },
+  render(el, o) { const id = 'w' + (++this._n); this._w[id] = o; return id; },
   reset() {},
   execute(id) { const o = this._w[id]; setTimeout(() => o.callback('fake-token-' + id), 30); },
   remove() {},
 };`;
 
 const CSP = readFileSync('public/_headers', 'utf8').match(/Content-Security-Policy: (.+)/)[1].trim();
-const BANNED = [/—/, /–/, /--/, /\bcompliant\b/i, /\bcertified\b/i, /\bpass(ed|es|ing)?\b/i];
-// The fact card "There is no certification and no pass" is intentional copy approved by the client.
-const ALLOWED = [/no certification and no pass/i, /No certificate, no pass/i, /Compliance dates have passed/i];
+const BANNED = [/\u2014/, /\u2013/, /--/, /\bcompliant\b/i, /\bcertified\b/i, /\bpass(ed|es|ing)?\b/i, /\bfail(s|ed|ing|ure)?\b/i];
+const AXE_TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'];
+const bank = buildBank(base, null, config.irpVersion);
 
 let failures = 0;
 function check(cond, msg) {
   console.log(`${cond ? 'PASS' : 'FAIL'}  ${msg}`);
   if (!cond) failures++;
 }
+const bannedHits = (text) => BANNED.filter((re) => re.test(text)).map(String);
 
-function bannedHits(text) {
-  let t = text;
-  ALLOWED.forEach((re) => (t = t.replace(new RegExp(re.source, 'gi'), '')));
-  return BANNED.filter((re) => re.test(t)).map(String);
-}
+// ---------- answer plans: question -> bank option index ----------
+const wrongIndex = (q) => (correctIndex(q) + 1) % q.options.length;
+const PLANS = {
+  mixed: (q, i) => (q.type === 'knowledge' ? (i % 3 === 2 ? wrongIndex(q) : correctIndex(q)) : i % 3),
+  best: (q) => (q.type === 'knowledge' ? correctIndex(q) : 0),
+  worst: (q) => (q.type === 'knowledge' ? wrongIndex(q) : q.options.length - 1),
+  twoWrong: (q, i) => (q.type === 'knowledge' && i < 2 ? wrongIndex(q) : correctIndex(q)),
+};
 
-async function run(name, { aum, examined, answers, keyboard, width, leadStatus = 200 }) {
+async function run(name, { role, width, keyboard = false, plan, completionStatus = 200, forcedColors, reducedMotion, zoomCheck = false, again = false }) {
   const browser = await chromium.launch();
-  const context = await browser.newContext({ viewport: { width, height: 900 }, acceptDownloads: true });
+  const context = await browser.newContext({
+    viewport: { width, height: 900 },
+    acceptDownloads: true,
+    ...(forcedColors ? { forcedColors: 'active' } : {}),
+    ...(reducedMotion ? { reducedMotion: 'reduce' } : {}),
+  });
   const page = await context.newPage();
   const errors = [];
   const external = [];
-  const leads = [];
-  let turnstileLoads = 0;
-  // Vite dev HMR websocket messages are dev server noise, not app errors.
-  const devNoise = /WebSocket|\[vite\]|Vite server/;
-  page.on('console', (m) => m.type() === 'error' && !devNoise.test(m.text()) && errors.push(m.text()));
+  const completions = [];
+  // A run that makes the notification fail on purpose expects the browser to log that status.
+  const expectedNoise = completionStatus === 200 ? null : new RegExp(`status of ${completionStatus}`);
+  page.on('console', (m) => m.type() === 'error' && !expectedNoise?.test(m.text()) && errors.push(m.text()));
   page.on('pageerror', (e) => errors.push(e.message));
+  await page.addInitScript(() => {
+    window.__csp = [];
+    document.addEventListener('securitypolicyviolation', (e) => window.__csp.push(`${e.violatedDirective} ${e.blockedURI}`));
+  });
   await page.route('**/*', async (route) => {
     const url = route.request().url();
     if (url === TURNSTILE_JS) {
-      turnstileLoads++;
-      const headers = { 'content-type': 'text/javascript', 'access-control-allow-origin': '*' };
-      return route.fulfill({ status: 200, headers, body: FAKE_TURNSTILE });
+      return route.fulfill({ status: 200, headers: { 'content-type': 'text/javascript', 'access-control-allow-origin': '*' }, body: FAKE_TURNSTILE });
     }
-    if (url === `${BASE}/api/lead`) {
-      leads.push({ method: route.request().method(), headers: route.request().headers(), body: route.request().postDataJSON() });
-      return route.fulfill({ status: leadStatus, contentType: 'application/json', body: JSON.stringify({ ok: leadStatus === 200 }) });
+    if (url === `${BASE}/api/completion`) {
+      completions.push(route.request().postDataJSON());
+      return route.fulfill({ status: completionStatus, contentType: 'application/json', body: JSON.stringify({ ok: completionStatus === 200 }) });
     }
     if (!url.startsWith(BASE)) {
       external.push(url);
       return route.abort();
     }
-    const response = await route.fetch();
-    const headers = { ...response.headers() };
-    // Vite dev injects inline styles, so CSP is enforced only against the production build (npm run preview).
-    if (process.env.SMOKE_CSP === '1') headers['content-security-policy'] = CSP;
-    await route.fulfill({ response, headers });
+    return route.continue();
   });
 
-  // Short wait so the 180ms screen fade-in has finished before capturing.
   const shot = async (label) => {
-    await page.waitForTimeout(250);
+    await page.waitForTimeout(reducedMotion ? 50 : 250);
     await page.screenshot({ path: join(OUT, `${name}-${label}.png`), fullPage: true });
   };
-
-  await page.goto(BASE);
-  await page.waitForSelector('h1');
-  check((await page.textContent('h1')) === 'Reg S-P Readiness Score', `${name}: landing H1`);
-  check((await page.locator('.fact-card').count()) === 3, `${name}: three fact cards`);
-  await shot('1-landing');
-  await page.click('[data-start]');
-
-  // Details
-  check(await page.isDisabled('[data-next]'), `${name}: Continue disabled until complete`);
-  await page.fill('#firmName', 'Example Wealth Partners');
-  await page.fill('#name', 'Jordan Example');
-  await page.selectOption('#aum', aum);
-  check(await page.isDisabled('[data-next]'), `${name}: Continue still disabled with exam question blank`);
-  await page.selectOption('#examined', examined);
-  await shot('2-details');
-  await page.click('[data-next]');
-
-  // Questions
-  for (let i = 0; i < answers.length; i++) {
-    await page.waitForSelector(`.q-counter >> text=Question ${i + 1} of ${answers.length}`);
-    check(await page.isDisabled('[data-next]'), `${name}: Q${i + 1} Next disabled before answer`);
-    const help = (await page.textContent('.question-help')) || '';
-    check(help.startsWith('Why this matters: ') && help.length > 30, `${name}: Q${i + 1} shows a Why this matters line`);
+  const axe = async (label) => {
+    await page.waitForTimeout(reducedMotion ? 50 : 250);
+    // Under forced colors the OS replaces the palette, so axe cannot measure contrast. Runs A to C cover it.
+    const builder = new AxeBuilder({ page }).withTags(AXE_TAGS);
+    if (forcedColors) builder.disableRules(['color-contrast']);
+    const r = await builder.analyze();
+    const v = r.violations.map((x) => `${x.id} (${x.nodes.length})`);
+    check(v.length === 0, `${name}: axe clean on ${label}${v.length ? `: ${v.join(', ')}` : ''}`);
+  };
+  const noHorizontalScroll = async (label) => {
+    const over = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    check(over <= 0, `${name}: no horizontal scroll on ${label} at ${page.viewportSize().width}px (${over}px over)`);
+  };
+  // Keyboard only: Tab until the target has focus.
+  const tabTo = async (selector, max = 80) => {
+    for (let i = 0; i < max; i++) {
+      if (await page.evaluate((s) => document.activeElement?.matches(s), selector)) return true;
+      await page.keyboard.press('Tab');
+    }
+    return false;
+  };
+  const activate = async (selector) => {
     if (keyboard) {
-      // Focus starts on the first option. Arrow down to the target, which selects it, then Enter twice advances.
-      for (let k = 0; k < answers[i]; k++) await page.keyboard.press('ArrowDown');
-      if (answers[i] === 0) await page.keyboard.press('Enter');
-      const checked = await page.locator('.option[aria-checked="true"]').count();
-      check(checked === 1, `${name}: Q${i + 1} selected with keyboard`);
-      await shot(`3-question-${String(i + 1).padStart(2, '0')}`);
+      check(await tabTo(selector), `${name}: reached ${selector} by keyboard`);
+      await page.keyboard.press('Enter');
+    } else await page.click(selector);
+  };
+  const type = async (selector, value) => {
+    if (keyboard) {
+      check(await tabTo(selector), `${name}: reached ${selector} by keyboard`);
+      await page.keyboard.type(value);
+    } else await page.fill(selector, value);
+  };
+
+  // ---------- sign in ----------
+  await page.goto(`${BASE}/`);
+  await page.waitForSelector('#code');
+  check(page.url() === `${BASE}/login/`, `${name}: unauthenticated visit lands on the sign-in page`);
+  await axe('login');
+  await type('#code', CODE);
+  if (keyboard) await page.keyboard.press('Enter');
+  else await page.click('[data-submit]');
+  await page.waitForURL(`${BASE}/`);
+  const mainResponse = await page.request.get(`${BASE}/`);
+  check(mainResponse.headers()['content-security-policy'] === CSP, `${name}: production CSP from _headers is served`);
+
+  // ---------- intro ----------
+  await page.waitForSelector('[data-start]');
+  check((await page.textContent('h1')).trim() === 'IRP and Reg S-P Readiness', `${name}: intro H1`);
+  check((await page.textContent('.hero')).includes(`Prepared for ${FIRM}`), `${name}: firm name prefilled from the access code`);
+  await shot('1-intro');
+  await axe('intro');
+  await activate('[data-start]');
+
+  // ---------- details ----------
+  await page.waitForSelector('#name');
+  check(await page.isDisabled('[data-next]'), `${name}: Continue disabled until complete`);
+  check((await page.inputValue('#firmName')) === FIRM, `${name}: firm field prefilled`);
+  await type('#name', 'Jordan Example');
+  await type('#email', 'not-an-email');
+  if (keyboard) await page.keyboard.press('Tab');
+  else await page.locator('#email').blur();
+  check(await page.isVisible('#email-error'), `${name}: invalid email shows an error`);
+  await axe('details with error');
+  await page.fill('#email', '');
+  await type('#email', 'jordan@smoketest.example');
+  if (keyboard) {
+    check(await tabTo('#role'), `${name}: reached role by keyboard`);
+    const idx = (await page.locator('#role option').allTextContents()).indexOf(role);
+    for (let k = 0; k < idx; k++) await page.keyboard.press('ArrowDown');
+  } else await page.selectOption('#role', role);
+  check((await page.inputValue('#role')) === role, `${name}: role selected`);
+  check(!(await page.isDisabled('[data-next]')), `${name}: Continue enabled when complete`);
+  await shot('2-details');
+  await axe('details');
+  await activate('[data-next]');
+
+  // ---------- questions ----------
+  const qs = questionsFor(bank, role);
+  const answers = {};
+  for (let i = 0; i < qs.length; i++) {
+    await page.waitForSelector(`.q-counter >> text=Question ${i + 1} of ${qs.length}`);
+    const title = (await page.textContent('#q-title')).trim();
+    const q = qs.find((x) => x.title === title);
+    check(Boolean(q), `${name}: Q${i + 1} "${title}" is from the ${role} path`);
+    if (!q) break;
+    check(await page.isDisabled('[data-next]'), `${name}: Q${i + 1} Next disabled before answer`);
+    const refs = await page.textContent('.question-refs');
+    check(refs.includes(q.irp_ref) && refs.includes('Reg S-P'), `${name}: Q${i + 1} shows the IRP section and rule`);
+    if (q.type === 'knowledge') check((await page.locator('.question-help').count()) === 0, `${name}: Q${i + 1} gives no hint`);
+
+    const target = plan(q, i);
+    answers[q.id] = target;
+    const labels = (await page.locator('.option-label').allTextContents()).map((s) => s.trim());
+    const pos = labels.indexOf(q.options[target].label);
+    if (keyboard) {
+      // Focus starts on the first option. Arrows move and select, Space selects the first, Enter advances.
+      for (let k = 0; k < pos; k++) await page.keyboard.press('ArrowDown');
+      if (pos === 0) await page.keyboard.press(' ');
+      check((await page.locator('.option[aria-checked="true"] .option-label').textContent()).trim() === q.options[target].label, `${name}: Q${i + 1} selected with keyboard`);
+      if (i === 0 || i === qs.length - 1 || q.type === 'readiness') await axe(`question ${i + 1} answered`);
+      if (i === 0) await shot('3-question-01');
       await page.keyboard.press('Enter');
     } else {
-      await page.locator('.option').nth(answers[i]).click();
-      await shot(`3-question-${String(i + 1).padStart(2, '0')}`);
-      if (i === answers.length - 1) {
-        check((await page.textContent('[data-next]')).trim() === 'See my score', `${name}: last button reads See my score`);
-      }
+      if (i === 0) await axe('question 1 unanswered');
+      await page.locator('.option').nth(pos).click();
+      if (i === 0) await shot('3-question-01');
+      if (i === qs.length - 1) check((await page.textContent('[data-next]')).trim() === 'See my results', `${name}: last button reads See my results`);
       await page.click('[data-next]');
     }
   }
 
-  // Results
-  await page.waitForSelector('.score-ring');
-  await page.waitForTimeout(900); // let the score ring and bars finish animating before the screenshot
+  // ---------- results ----------
+  const expected = buildResults({ bank, role, answers }, config.knowledgeBands);
+  await page.waitForSelector('.crosswalk');
+  await page.waitForTimeout(reducedMotion ? 50 : 900);
   await shot('4-results');
-  const results = {
-    h1: await page.textContent('h1'),
-    score: parseInt((await page.getAttribute('.score-ring', 'aria-label')).match(/Overall score (\d+)/)[1], 10),
-    band: (await page.textContent('.badge')).trim(),
-    body: await page.textContent('main'),
-    findings: await page.locator('.finding').count(),
-    examNote: await page.locator('.callout-exam').count(),
-    locked: await page.locator('.finding-locked').count(),
-    lockCard: await page.locator('.lock-card').count(),
-    titlesVisible: await page.locator('.finding h3').allInnerTexts(),
-  };
-  // Review the results layout at every breakpoint, then return to the run's width.
-  results.geometry = {};
-  for (const w of [768, 1024, 1280]) {
-    await page.setViewportSize({ width: w, height: 900 });
-    await shot(`4-results-${w}`);
-    // Layout checks: the badge stays left of the section divider, and the lock card is centered on the findings.
-    results.geometry[w] = await page.evaluate(() => {
-      const box = (sel) => document.querySelector(sel)?.getBoundingClientRect();
-      const badge = box('.score-main .badge');
-      const sections = box('.score-sections');
-      const wrap = box('.findings-wrap.is-locked');
-      const card = box('.lock-card');
-      return {
-        badgeClear: badge.right <= sections.left || badge.bottom <= sections.top,
-        lockOffset: wrap && card ? Math.abs(wrap.left + wrap.width / 2 - (card.left + card.width / 2)) : 0,
-        lockVOffset: wrap && card ? Math.abs(wrap.top + wrap.height / 2 - (card.top + card.height / 2)) : 0,
-      };
-    });
+  await axe('results');
+  const rings = await page.locator('.score-ring').evaluateAll((els) => els.map((e) => e.getAttribute('aria-label')));
+  const ringScore = (label) => Number((rings.find((r) => r.startsWith(label)) || '').match(/(\d+) out of/)?.[1]);
+  check(ringScore('IRP Knowledge') === expected.knowledge.score, `${name}: IRP Knowledge ${expected.knowledge.score} shown`);
+  if (expected.readiness) check(ringScore('Program Readiness') === expected.readiness.score, `${name}: Program Readiness ${expected.readiness.score} shown`);
+  else check(rings.length === 1, `${name}: staff see Knowledge only`);
+  const rows = await page.locator('.crosswalk tbody tr').count();
+  check(rows === expected.crosswalk.length, `${name}: crosswalk has ${expected.crosswalk.length} rows`);
+  check((await page.locator('.finding-missed').count()) === expected.missed.length, `${name}: ${expected.missed.length} missed knowledge questions listed`);
+  const resultsText = await page.textContent('main');
+  for (const q of expected.missed) {
+    check(resultsText.includes(q.options[correctIndex(q)].label) && resultsText.includes(q.explanation), `${name}: missed "${q.title}" shows IRP answer and explanation`);
   }
-  await page.setViewportSize({ width, height: 900 });
-  // Use the lock card's button when present, so it is exercised too.
-  await page.click(results.lockCard ? '[data-unlock]' : '[data-report]');
+  check(bannedHits(resultsText).length === 0, `${name}: results copy clean ${bannedHits(resultsText)}`);
+  await noHorizontalScroll('results');
+  if (zoomCheck) {
+    // 200% zoom on a 1280px window lays out like a 640px viewport.
+    await page.setViewportSize({ width: 640, height: 900 });
+    await noHorizontalScroll('results at 200% zoom');
+    await shot('4-results-200pct');
+    await page.setViewportSize({ width, height: 900 });
+  }
+  await activate('[data-report]');
 
-  // Gate
-  check((await page.inputValue('#leadName')) === 'Jordan Example', `${name}: gate name prefilled`);
-  const notice = (await page.textContent('.lead-notice')) || '';
-  check(/name, work email, role, firm name and score are sent to AdvisorDefense/.test(notice), `${name}: gate discloses what is sent`);
-  check(bannedHits(notice).length === 0, `${name}: gate notice copy clean`);
-  await page.fill('#email', 'not-an-email');
-  await page.selectOption('#role', 'CCO');
-  check(await page.isDisabled('[data-submit]'), `${name}: submit disabled with invalid email`);
-  await page.fill('#email', 'jordan@examplewealth.com');
-  await shot('5-gate');
-  const [download] = await Promise.all([page.waitForEvent('download'), page.click('[data-submit]')]);
-  const pdfPath = join(OUT, `${name}-${download.suggestedFilename()}`);
-  await download.saveAs(pdfPath);
+  // ---------- report ----------
+  await page.waitForSelector('[data-submit]');
+  const notice = await page.textContent('.completion-notice');
+  for (const phrase of ['your name', 'work email', 'role', 'two scores', 'each section', 'which questions you missed', 'not your answers']) {
+    check(notice.includes(phrase), `${name}: disclosure names "${phrase}"`);
+  }
+  check(bannedHits(notice).length === 0, `${name}: disclosure copy clean`);
+  await shot('5-report');
+  await axe('report');
+  const [download] = await Promise.all([page.waitForEvent('download'), activate('[data-submit]')]);
+  const file = join(OUT, `${name}-${download.suggestedFilename()}`);
+  await download.saveAs(file);
   await page.waitForSelector('.notice-success');
-  // Download again must not send a second notification.
-  const [again] = await Promise.all([page.waitForEvent('download'), page.click('[data-again]')]);
-  check(Boolean(again), `${name}: download again works`);
+  await shot('6-downloaded');
+  await axe('report downloaded');
+  if (again) {
+    const [d2] = await Promise.all([page.waitForEvent('download'), page.click('[data-again]')]);
+    check(Boolean(d2), `${name}: Download again works`);
+  }
   await page.waitForTimeout(300);
 
-  const parser = new PDFParse({ data: readFileSync(pdfPath) });
-  // Drop the page separators pdf-parse inserts ("-- 1 of 5 --"), which are not PDF content.
-  const pdfText = (await parser.getText()).text.replace(/^-- \d+ of \d+ --$/gm, '');
-  await parser.destroy();
-  writeFileSync(join(OUT, `${name}-pdf.txt`), pdfText);
+  // ---------- completion notification ----------
+  check(completions.length === 1, `${name}: exactly one completion notification (${completions.length})`);
+  const sent = completions[0] || {};
+  const want = { ...completionPayload({ name: 'Jordan Example', email: 'jordan@smoketest.example', role }, expected), turnstileToken: sent.turnstileToken };
+  check(JSON.stringify(sent) === JSON.stringify(want), `${name}: notification carries exactly the disclosed fields`);
+  check(!('clientId' in sent) && !('answers' in sent), `${name}: notification has no clientId or answers`);
+  const answerText = Object.entries(answers).map(([id, i]) => qs.find((q) => q.id === id).options[i].label);
+  check(!answerText.some((t) => JSON.stringify(sent).includes(t)), `${name}: no answer text in the notification`);
+  if (completionStatus !== 200) check(true, `${name}: report downloaded although the notification returned ${completionStatus}`);
 
-  // After the download, going back to results shows the findings unlocked.
-  await page.click('[data-back]');
-  await page.waitForSelector('.score-ring');
-  results.lockedAfter = await page.locator('.finding-locked').count();
-  results.lockCardAfter = await page.locator('.lock-card').count();
-  await shot('6-results-unlocked');
+  // ---------- PDF ----------
+  const pdfText = (await new PDFParse({ data: readFileSync(file) }).getText()).text;
+  writeFileSync(`${file}.txt`, pdfText);
+  // pdf-parse adds "-- N of M --" page markers, and letter-spaced labels come out as "I R P".
+  // Compare with all whitespace removed.
+  const body = pdfText.replace(/^-- \d+ of \d+ --$/gm, '');
+  const squash = (t) => t.replace(/\s+/g, '');
+  const flat = squash(body);
+  const has = (t) => flat.includes(squash(t));
+  for (const s of ['IRP AND REG S-P READINESS REPORT', FIRM, 'Jordan Example', role, config.irpVersion, 'How the IRP meets Reg S-P', `Confidential. Prepared for ${FIRM}.`, 'Page 1 of']) {
+    check(has(s), `${name}: PDF contains "${s}"`);
+  }
+  check(has(`IRP KNOWLEDGE ${expected.knowledge.score} / 100 ${expected.knowledge.band.label}`), `${name}: PDF Knowledge score and band`);
+  if (expected.readiness) check(has(`PROGRAM READINESS ${expected.readiness.score} / 100 ${expected.readiness.band.label}`), `${name}: PDF Readiness score and band`);
+  else check(!has('PROGRAM READINESS'), `${name}: PDF has no readiness score for staff`);
+  for (const row of expected.crosswalk) {
+    check(has(`Knowledge: ${row.knowledge.correct} of ${row.knowledge.total}`) && has(row.name), `${name}: PDF crosswalk row ${row.name}`);
+  }
+  check(qs.every((q) => has(q.title)), `${name}: PDF lists every question`);
+  check(bannedHits(body).length === 0, `${name}: PDF copy clean ${bannedHits(body)}`);
 
-  // In the failure run the browser logs the deliberate /api/lead error status. Nothing else is allowed.
-  const unexpected = errors.filter((e) => !(leadStatus !== 200 && e.includes(`status of ${leadStatus}`)));
-  check(unexpected.length === 0, `${name}: no console errors or CSP violations ${unexpected.length ? JSON.stringify(unexpected) : ''}`);
-  check(external.length === 0, `${name}: no external requests ${external.length ? JSON.stringify(external) : ''}`);
-  check(turnstileLoads === 1, `${name}: Turnstile script loaded once (got ${turnstileLoads})`);
-  check(leads.length === 1, `${name}: exactly one lead notification (got ${leads.length})`);
-  const lead = leads[0] || { body: {}, headers: {} };
-  check(lead.method === 'POST' && /application\/json/.test(lead.headers['content-type'] || ''), `${name}: lead is a JSON POST`);
-  check(
-    JSON.stringify(Object.keys(lead.body).sort()) === JSON.stringify(['email', 'firmName', 'name', 'role', 'score', 'turnstileToken']),
-    `${name}: lead sends only name, email, role, firm, score and token (got ${Object.keys(lead.body)})`
-  );
-  check(lead.body.name === 'Jordan Example' && lead.body.email === 'jordan@examplewealth.com' && lead.body.role === 'CCO' &&
-    lead.body.firmName === 'Example Wealth Partners', `${name}: lead fields match the form`);
-  check(String(lead.body.turnstileToken).startsWith('fake-token-'), `${name}: lead carries the Turnstile token`);
-  const opts = await page.evaluate(() => window.__tsOptions && { action: window.__tsOptions.action, appearance: window.__tsOptions.appearance, sitekey: window.__tsOptions.sitekey });
-  check(opts && opts.action === 'lead' && opts.appearance === 'interaction-only' && Boolean(opts.sitekey), `${name}: Turnstile rendered with action lead, interaction-only`);
+  // ---------- page health ----------
+  const csp = await page.evaluate(() => window.__csp);
+  check(csp.length === 0, `${name}: no CSP violations ${csp.join('; ')}`);
+  check(errors.length === 0, `${name}: no console errors ${errors.join(' | ')}`);
+  check(external.length === 0, `${name}: no third-party requests ${external.join(', ')}`);
+  const inlineStyles = await page.evaluate(() => document.querySelectorAll('style:not([data-vite-dev-id])').length);
+  check(inlineStyles === 0, `${name}: no <style> elements`);
   await browser.close();
-  return { results, pdfText, pdfPath, lead };
 }
 
-// Run A: small firm, exam Yes, mixed answers by mouse at phone width.
-const a = await run('A-small-mobile', {
-  aum: '$100M to $500M',
-  examined: 'Yes',
-  answers: [0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1, 2, 0, 1],
-  keyboard: false,
-  width: 375,
-});
-check(a.results.h1 === 'Example Wealth Partners: Reg S-P Readiness Score', 'A: results H1 uses firm name');
-// Sections: IRP 5/8 (63%), Notification 3/6, Vendors 4/8, Safeguards 3/6. Average 53.1.
-check(a.results.score === 53, `A: overall score 53 (got ${a.results.score})`);
-check(a.lead.body.score === 53, 'A: lead score matches results');
-check(a.results.band === 'High exposure', 'A: band High exposure');
-check(a.results.body.includes('June 3, 2026'), 'A: compliance date June 3, 2026');
-check(a.results.findings === 3, 'A: three findings');
-check(a.results.body.indexOf('Practice run') < a.results.body.indexOf('Deciding not to notify') &&
-  a.results.body.indexOf('Deciding not to notify') < a.results.body.indexOf('Vendor due diligence'), 'A: findings are lowest score, question order');
-check(a.results.examNote === 1, 'A: exam comparison note shown');
-check(a.results.locked === 3 && a.results.lockCard === 1, 'A: finding details locked behind one lock card');
-check(a.results.titlesVisible.join('|') === 'Practice run|Deciding not to notify|Vendor due diligence', 'A: finding titles stay readable');
-check(a.results.lockedAfter === 0 && a.results.lockCardAfter === 0, 'A: findings unlock after the report downloads');
-check(bannedHits(a.results.body).length === 0, `A: results copy clean ${bannedHits(a.results.body)}`);
-for (const s of ['Example Wealth Partners', 'Jordan Example, CCO', 'June 3, 2026', '56', 'High exposure',
-  'Incident Response Plan 63%', 'Safeguards and Records 50%', 'YOUR ANSWER', 'LIKELY EXAM FINDING',
-  'Related AdvisorDefense service:', 'Next steps', 'Compare these findings', 'not a determination of regulatory compliance',
-  'Page 1 of', '(800) 456-5357', 'Sales@AdvisorDefense.com', 'Confidential. Prepared for Example Wealth Partners']) {
-  check(a.pdfText.replace(/\s+/g, ' ').includes(s), `A: PDF contains "${s}"`);
-}
-check((a.pdfText.match(/YOUR ANSWER/g) || []).length === 14, 'A: PDF lists all 14 answers');
-check(bannedHits(a.pdfText).length === 0, `A: PDF copy clean ${bannedHits(a.pdfText)}`);
+// ---------- unauthenticated ----------
+async function unauthenticated() {
+  const browser = await chromium.launch();
+  const context = await browser.newContext();
+  const req = context.request;
+  // Nothing from reference/ ships, and no _routes.json can exempt paths from the middleware.
+  const shipped = readdirSync('dist', { recursive: true }).map(String);
+  check(!shipped.some((f) => /reference|RegS-P-main|\.docx$|irp-template/i.test(f)), 'build: nothing from reference/ in dist');
+  check(!shipped.includes('_routes.json'), 'build: no _routes.json in dist');
+  check(!shipped.some((f) => f.startsWith('src')), 'build: no source files in dist');
 
-// Run B: large firm, no exam, all best answers by keyboard at desktop width.
-const b = await run('B-large-desktop', {
-  aum: '$1.5B or more',
-  examined: 'No',
-  answers: Array(14).fill(0),
-  keyboard: true,
-  width: 1280,
-});
-check(b.results.score === 100, `B: overall score 100 (got ${b.results.score})`);
-check(b.results.band === 'Exam-ready', 'B: band Exam-ready');
-check(b.results.body.includes('December 3, 2025'), 'B: compliance date December 3, 2025');
-check(b.results.findings === 0, 'B: no findings');
-check(b.results.lockCard === 0, 'B: no lock card when there are no findings');
-check(b.results.examNote === 0, 'B: no exam comparison note');
-check(b.pdfText.includes('No gap noted'), 'B: PDF notes no gaps');
+  const html = readFileSync('dist/index.html', 'utf8');
+  const bundle = html.match(/src="(\/assets\/[^"]+\.js)"/)[1];
+  const css = html.match(/href="(\/assets\/[^"]+\.css)"/)?.[1];
 
-for (const [w, g] of Object.entries(a.results.geometry)) {
-  check(g.badgeClear, `A: band badge clear of section divider at ${w}px`);
-  check(g.lockOffset <= 2 && g.lockVOffset <= 2, `A: lock card centered on findings at ${w}px (off by ${g.lockOffset.toFixed(1)}, ${g.lockVOffset.toFixed(1)})`);
+  const asset = await req.get(`${BASE}${bundle}`, { maxRedirects: 0 });
+  check(asset.status() === 401, `unauth: bundle with the question bank blocked (${asset.status()})`);
+  check(!(await asset.text()).includes('roles_report_to_csirt'), 'unauth: no question content in the response');
+  if (css) check((await req.get(`${BASE}${css}`, { maxRedirects: 0 })).status() === 401, 'unauth: app stylesheet blocked');
+  const page = await req.get(`${BASE}/`, { maxRedirects: 0, headers: { Accept: 'text/html' } });
+  check(page.status() === 302 && page.headers().location === '/login/', 'unauth: app page redirects to /login/');
+  check((await req.get(`${BASE}/api/client`, { maxRedirects: 0 })).status() === 401, 'unauth: /api/client is 401');
+  check((await req.post(`${BASE}/api/completion`, { data: {}, headers: { Origin: BASE } })).status() === 401, 'unauth: /api/completion is 401');
+  check((await req.get(`${BASE}/login/`)).status() === 200, 'unauth: sign-in page is public');
+  check((await req.get(`${BASE}/login/`)).headers()['content-security-policy'] === CSP, 'unauth: sign-in page has the production CSP');
+
+  // A wrong code: generic message, no session.
+  const p = await context.newPage();
+  await p.route(TURNSTILE_JS, (r) => r.fulfill({ status: 200, headers: { 'content-type': 'text/javascript' }, body: FAKE_TURNSTILE }));
+  await p.goto(`${BASE}/login/`);
+  await p.fill('#code', 'WRONG-WRONG-WRONG-WRONG');
+  await p.click('[data-submit]');
+  await p.waitForSelector('#code-error:not([hidden])');
+  const msg = await p.textContent('#code-error');
+  check(/could not sign you in/.test(msg) && !/expired|unknown|exist/i.test(msg), 'unauth: wrong code gets the generic message');
+  check(p.url() === `${BASE}/login/`, 'unauth: wrong code stays on sign-in');
+  const r = await new AxeBuilder({ page: p }).withTags(AXE_TAGS).analyze();
+  check(r.violations.length === 0, `unauth: axe clean on sign-in error state ${r.violations.map((v) => v.id).join(', ')}`);
+  const cookies = await context.cookies();
+  check(!cookies.some((c) => c.name === '__Host-irp_session'), 'unauth: no session cookie after a wrong code');
+  await browser.close();
 }
 
-// Run C: the longest band label ("Gaps an examiner would note"), where the badge used to overlap the divider.
-const c = await run('C-gaps-desktop', {
-  aum: '$500M to $1.5B',
-  examined: 'An exam is underway now',
-  answers: [0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0],
-  keyboard: false,
-  width: 1280,
-  leadStatus: 502,
-});
-check(c.lead.body.score === 79, 'C: lead score matches results');
-check(c.pdfText.includes('Example Wealth Partners'), 'C: report still downloads when the notification fails');
-// Sections: IRP 6/8, Notification 5/6, Vendors 6/8, Safeguards 5/6. Average 79.2.
-check(c.results.score === 79, `C: overall score 79 (got ${c.results.score})`);
-check(c.results.band === 'Gaps an examiner would note', 'C: band Gaps an examiner would note');
-check(c.results.examNote === 1, 'C: exam underway shows comparison note');
-for (const [w, g] of Object.entries(c.results.geometry)) {
-  check(g.badgeClear, `C: band badge clear of section divider at ${w}px`);
-  check(g.lockOffset <= 2 && g.lockVOffset <= 2, `C: lock card centered on findings at ${w}px`);
-}
+await unauthenticated();
+await run('A-csirt-desktop-keyboard', { role: 'CSIRT Lead', width: 1280, keyboard: true, plan: PLANS.mixed, zoomCheck: true, again: true });
+await run('B-staff-phone', { role: 'Staff (Supervised Person)', width: 390, plan: PLANS.best, completionStatus: 502 });
+await run('C-csirt-320', { role: 'Chief Compliance Officer', width: 320, plan: PLANS.worst });
+await run('D-staff-desktop-keyboard-forced', { role: 'Staff (Supervised Person)', width: 1280, keyboard: true, plan: PLANS.twoWrong, forcedColors: true, reducedMotion: true });
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);
