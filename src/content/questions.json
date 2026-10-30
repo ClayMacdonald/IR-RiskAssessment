@@ -86,9 +86,9 @@
       "question": "You clicked a link in an email and now think it was a phishing attempt. What does your IRP say about reporting it?",
       "options": [
         { "label": "Reporting is mandatory. An honest mistake is excusable, staying silent is not.", "correct": true },
-        { "label": "Report it only if you are sure harm occurred" },
-        { "label": "Try to fix it yourself first, then report if the problem continues" },
-        { "label": "Reporting is optional if no client data was on your computer" }
+        { "label": "Report it only if you are sure it caused harm, so the CSIRT is not distracted" },
+        { "label": "Try to fix it yourself first, and report it only if the problem continues" },
+        { "label": "Reporting is optional when no client data was stored on your computer" }
       ],
       "explanation": "Your IRP says reporting a potential incident is mandatory, even if you caused it by accident. Human error is excusable. Not reporting out of fear or apathy is not. Appendix E adds: you will not get in trouble for reporting.",
       "irp_ref": "Section 2.3.2 Supervised Persons; Appendix E, question 5",
@@ -105,9 +105,9 @@
       "question": "During an incident, neither the {{csirtLead}} nor the {{secondaryLead}} can be reached. Under your IRP, who leads the response?",
       "options": [
         { "label": "Any CSIRT member may take the lead, and that choice is recorded in the incident log", "correct": true },
-        { "label": "The response waits until one of the two leads can be reached" },
-        { "label": "AdvisorDefense leads and makes all decisions for the firm" },
-        { "label": "The first employee who noticed the incident" }
+        { "label": "The response waits until one of the two leads can be reached and approves it" },
+        { "label": "AdvisorDefense takes the lead and makes every decision on the firm's behalf" },
+        { "label": "The first employee who noticed the incident leads until a lead is reachable" }
       ],
       "explanation": "Appendix D says the {{secondaryLead}} steps in when the {{csirtLead}} is unavailable. If both are unavailable, any CSIRT member may assume the lead, and the selection is documented in the incident log.",
       "irp_ref": "Appendix D CSIRT Roles and Responsibilities",
@@ -124,9 +124,9 @@
       "question": "What role does AdvisorDefense have under your IRP?",
       "options": [
         { "label": "A named member of the CSIRT that helps respond to incidents", "correct": true },
-        { "label": "An outside vendor contacted only after the incident is closed" },
-        { "label": "The firm's breach counsel" },
-        { "label": "The party that decides whether clients are notified" }
+        { "label": "An outside vendor the firm calls only after the incident is closed" },
+        { "label": "The firm's breach counsel, engaged through the insurance carrier" },
+        { "label": "The party that decides on the firm's behalf whether clients are notified" }
       ],
       "explanation": "Appendix D lists AdvisorDefense as a CSIRT member, with its support phone and email. AdvisorDefense also reviews suspicious emails and supports containment (Appendix A). The firm still owns its decisions, including whether to notify clients.",
       "irp_ref": "Appendix D CSIRT Roles and Responsibilities; Appendix C Key Contact List",
@@ -183,7 +183,7 @@
         { "label": "You emailed a client's statement to the wrong person", "correct": true },
         { "label": "A coworker asks you to resend a meeting invite" },
         { "label": "Your laptop restarts to install scheduled updates" },
-        { "label": "A client calls to update their mailing address" }
+        { "label": "A client calls to update their mailing address on file" }
       ],
       "explanation": "Appendix E lists sending a sensitive email to the wrong recipient as an incident, along with malware, a lost or stolen device and any breach of personal information. If you are ever in doubt, treat it as an incident and report it.",
       "irp_ref": "Section 2.1 Definition of an Incident; Appendix E, question 1",
@@ -201,7 +201,7 @@
       "options": [
         { "label": "As soon as you become aware of it", "correct": true },
         { "label": "By the end of the business day" },
-        { "label": "Within 72 hours" },
+        { "label": "Within 72 hours of noticing it" },
         { "label": "Once you have confirmed it is real" }
       ],
       "explanation": "Appendix E says to report as soon as you become aware. Fast reporting matters because notification and regulatory deadlines can start at the moment of discovery.",
@@ -219,9 +219,9 @@
       "question": "You entered your password on a login page you now think was fake. Under your IRP, what should you do?",
       "options": [
         { "label": "Report it right away, then change your password from a different, trusted device", "correct": true },
-        { "label": "Change your password on the same device and tell no one if nothing happens" },
-        { "label": "Delete the email so no one else clicks it" },
-        { "label": "Run your own antivirus scan and report only if it finds something" }
+        { "label": "Change your password on the same device, and report it only if something odd happens" },
+        { "label": "Delete the email right away so no one else at the firm can click the same link" },
+        { "label": "Run your own antivirus scan first, and report it only if the scan finds something" }
       ],
       "explanation": "Appendix E says: report it immediately, change your password from a different, trusted device, keep the email for the CSIRT, and watch for unexpected logins, MFA prompts or payment requests. Disconnect from the network only if instructed.",
       "irp_ref": "Appendix E, question 5",
@@ -238,9 +238,9 @@
       "question": "How should you send a suspicious email to the CSIRT?",
       "options": [
         { "label": "Forward it as an attachment so the full headers can be inspected", "correct": true },
-        { "label": "Forward it inline, like a normal email" },
-        { "label": "Take a screenshot, then delete the original" },
-        { "label": "Reply to the sender and ask if it is real" }
+        { "label": "Forward it inline like a normal email so the CSIRT can read it quickly" },
+        { "label": "Take a screenshot for the CSIRT, then delete the original message" },
+        { "label": "Reply to the sender first and ask whether the message is genuine" }
       ],
       "explanation": "Appendix E says to forward a suspicious email to the CSIRT as an attachment, not inline, so the headers can be inspected. Do not delete it, reply to it, click its links or open its attachments.",
       "irp_ref": "Appendix E, questions 4 and 6; Appendix A, Phishing",
@@ -276,9 +276,9 @@
       "question": "Which of these is sensitive customer information under your IRP?",
       "options": [
         { "label": "A client's account number together with their date of birth", "correct": true },
-        { "label": "A client's name and the city they live in" },
-        { "label": "The firm's public Form ADV brochure" },
-        { "label": "A list of the firm's office phone numbers" }
+        { "label": "A client's name together with the city and state they live in" },
+        { "label": "The firm's public Form ADV brochure, as posted on the SEC website" },
+        { "label": "A list of the firm's office phone numbers and general email address" }
       ],
       "explanation": "Your IRP defines sensitive customer information to include an account number or name combined with information that could be used to get into the account, such as a date of birth, an access code or a security question answer. A Social Security number on its own also counts.",
       "irp_ref": "Section 2.2 Sensitive Customer Information Classification and Definitions",
@@ -294,10 +294,10 @@
       "title": "Assessing scope",
       "question": "Under your IRP, what does the CSIRT's scope assessment cover?",
       "options": [
-        { "label": "Which systems and data are involved, how that information is classified, and whether business operations are affected", "correct": true },
-        { "label": "Only the cost of restoring the affected systems" },
-        { "label": "Only whether law enforcement should be called" },
-        { "label": "Only which employee caused the incident" }
+        { "label": "The systems and data involved, how the data is classified, and the effect on operations", "correct": true },
+        { "label": "The cost of restoring the affected systems and whether the insurance policy will cover it" },
+        { "label": "Whether law enforcement should be called, and which agency should receive the report" },
+        { "label": "Which employee caused the incident, and what discipline the firm should consider for them" }
       ],
       "explanation": "Section 3.3 says the CSIRT uses logs and other available information to assess which systems and data might be involved, notes how the information is classified, and decides whether operations are affected. If they are, the Business Continuity Plan is invoked as needed.",
       "irp_ref": "Section 3.3 Assessment of Potential Scope",
@@ -332,10 +332,10 @@
       "title": "Handling an affected computer",
       "question": "Your computer shows a ransom message. Under your IRP, what should you do with it?",
       "options": [
-        { "label": "Leave it on, do not restart it, and disconnect from the network only if the CSIRT tells you to", "correct": true },
-        { "label": "Turn it off right away to stop the damage" },
-        { "label": "Restart it to see if the message goes away" },
-        { "label": "Take it to a local repair shop to remove the ransomware" }
+        { "label": "Leave it on, and disconnect it from the network only if the CSIRT tells you to", "correct": true },
+        { "label": "Turn it off right away and unplug it, so the ransomware cannot spread any further" },
+        { "label": "Restart it to see whether the message clears, then report it if it comes back" },
+        { "label": "Take it to a local repair shop so they can remove the ransomware the same day" }
       ],
       "explanation": "Appendix E says not to power off, restart or reimage an affected device, and to disconnect it from the network only if the CSIRT instructs. Powering off can destroy evidence the CSIRT needs. Report it right away.",
       "irp_ref": "Appendix E, question 4; Section 3.2 Protection of Forensic Data",
@@ -371,9 +371,9 @@
       "question": "A reporter calls you asking about a rumored breach at the firm. What should you say?",
       "options": [
         { "label": "That you are not in a position to comment, and suggest they contact the CSIRT", "correct": true },
-        { "label": "Confirm what you know so the story is accurate" },
-        { "label": "Say that nothing happened" },
-        { "label": "Tell them which clients were affected" }
+        { "label": "Confirm only the facts you know for certain, so the story is accurate" },
+        { "label": "Say firmly that nothing happened, so the rumor does not spread further" },
+        { "label": "Tell them which clients were affected, so those clients hear it quickly" }
       ],
       "explanation": "Appendix E says not to respond to the media. For phone requests, say you are not in a position to comment and suggest they reach out to the CSIRT. Forward written requests to the CSIRT.",
       "irp_ref": "Appendix E, question 8",
@@ -390,9 +390,9 @@
       "question": "When may you contact law enforcement yourself about an incident?",
       "options": [
         { "label": "Only if the CSIRT directs you to, or if someone is in personal danger", "correct": true },
-        { "label": "Any time you think a crime may have happened" },
-        { "label": "Never, under any circumstances" },
-        { "label": "Only after clients have been notified" }
+        { "label": "Any time you believe a crime may have happened, without waiting for anyone" },
+        { "label": "Never, under any circumstances, even if someone is in personal danger" },
+        { "label": "Only after the firm has finished notifying all affected clients" }
       ],
       "explanation": "Appendix E says not to contact law enforcement, media or others unless the CSIRT directs you to. The exception is personal danger or a crime against a person, such as a robbery or assault. Then call law enforcement promptly. Section 3.5 says law enforcement is involved only with the CSIRT's knowledge and approval.",
       "irp_ref": "Appendix E, questions 2 and 7; Section 3.5 Escalation of the Incident",
@@ -408,10 +408,10 @@
       "title": "Money movement",
       "question": "An incident involves a compromised email account. Which containment step does your IRP call for on money movement?",
       "options": [
-        { "label": "Halt fund transfers and verify any pending wire or banking change requests through a known, separate channel", "correct": true },
-        { "label": "Process pending wires quickly, before the attacker can change them" },
-        { "label": "Approve transfers only by replying to the same email thread" },
-        { "label": "Leave transfers to the custodian without mentioning the incident" }
+        { "label": "Halt transfers and verify any wire or banking change through a separate, known channel", "correct": true },
+        { "label": "Process pending wires quickly, before the attacker has a chance to change the instructions" },
+        { "label": "Approve transfers only after confirming by reply in the same email thread as the request" },
+        { "label": "Leave transfers to the custodian to handle, without mentioning the incident to them" }
       ],
       "explanation": "Section 3.4 says to consider temporarily halting fund transfers and financial transactions. The Appendix A playbooks say to stop all money movement and verify any wire, ACH or banking detail change out of band before processing.",
       "irp_ref": "Section 3.4 Containment of the Incident; Appendix A",
@@ -427,10 +427,10 @@
       "title": "Protecting evidence",
       "question": "Which step follows your IRP for protecting forensic data during an incident?",
       "options": [
-        { "label": "Stop logs and access history from being overwritten, and take and protect snapshots of affected virtual machines", "correct": true },
-        { "label": "Reimage affected machines first, then collect what logs remain" },
-        { "label": "Delete old logs to free up storage for the investigation" },
-        { "label": "Block the attacker by launching a counterattack on their server" }
+        { "label": "Stop logs from being overwritten, and take and protect snapshots of affected virtual machines", "correct": true },
+        { "label": "Reimage the affected machines first to stop the attack, then collect whatever logs remain" },
+        { "label": "Delete older logs to free up storage space so the investigation can run faster" },
+        { "label": "Block the attacker by launching a counterattack on the server they are using" }
       ],
       "explanation": "Section 3.2 says to configure systems so evidence is not overwritten, change passwords on systems that hold forensic data, add storage if needed, keep disconnected systems intact and protect virtual machine snapshots. Section 3.4 prohibits any retaliation against the attacker.",
       "irp_ref": "Section 3.2 Protection of Forensic Data; Section 3.4 Containment of the Incident",
@@ -446,12 +446,12 @@
       "title": "Insurance, counsel and forensics",
       "question": "In a likely data breach, what order does your IRP set for the insurance carrier, counsel and a forensic firm?",
       "options": [
-        { "label": "Notify {{carrier}} promptly, engage breach counsel through the carrier, and engage forensics through counsel", "correct": true },
-        { "label": "Hire a forensic firm directly, then tell the carrier when the bill arrives" },
-        { "label": "Finish notifying clients first, then file the insurance claim" },
-        { "label": "Have the IT provider investigate and skip counsel to save time" }
+        { "label": "Call the carrier first, get breach counsel through the carrier, then forensics through counsel", "correct": true },
+        { "label": "Hire a forensic firm directly to save time, then tell the carrier when the invoice arrives" },
+        { "label": "Finish notifying clients first, then file the insurance claim and engage counsel if needed" },
+        { "label": "Have the IT provider investigate on its own and skip counsel to keep costs down" }
       ],
-      "explanation": "Section 3.1 says the carrier must be notified promptly and third parties engaged according to the policy. Appendix C says breach counsel is engaged through the carrier's claims hotline. Section 3.6 says forensic firms should be engaged through outside counsel.",
+      "explanation": "Section 3.1 says {{carrier}} must be notified promptly and third parties engaged according to the policy. Appendix C says breach counsel is engaged through the carrier's claims hotline. Section 3.6 says forensic firms should be engaged through outside counsel.",
       "irp_ref": "Section 3.1 Cybersecurity Insurance; Section 3.6 Involvement of Counsel; Appendix C",
       "regsp_ref": "none: insurance and legal privilege are not Reg S-P requirements. They protect coverage and the investigation record.",
       "tie_in": "Late carrier notice can put coverage at risk. Work done through counsel can help protect privilege while the firm makes its Reg S-P notice decision.",
@@ -466,9 +466,9 @@
       "question": "Under your IRP, when must an after-action review happen?",
       "options": [
         { "label": "For every incident, promptly after the incident is closed", "correct": true },
-        { "label": "Only for Level 1 incidents" },
-        { "label": "Only if clients were notified" },
-        { "label": "Once a year, at the annual IRP review" }
+        { "label": "Only for Level 1 incidents, within 30 days after they are closed" },
+        { "label": "Only when clients were notified, after the notices have gone out" },
+        { "label": "Once a year, combined with the annual review of the IRP" }
       ],
       "explanation": "Section 3.10 says an after-action analysis is performed for all incidents, with meetings held promptly after the incident closes. The goal is to document what happened, capture lessons learned and identify controls that reduce the risk of a repeat.",
       "irp_ref": "Section 3.10 Post-Incident Assessment and Enhancement",
@@ -503,10 +503,10 @@
       "title": "Client notice deadline",
       "question": "Under your IRP and Reg S-P, when must affected clients be notified?",
       "options": [
-        { "label": "As soon as practicable, and no later than 30 days after becoming aware that unauthorized access occurred or is reasonably likely to have occurred", "correct": true },
-        { "label": "Within 72 hours of discovering the incident" },
-        { "label": "Within 30 days after the investigation is finished" },
-        { "label": "Within 60 days, once counsel approves the notice" }
+        { "label": "As soon as practicable, and no later than 30 days after becoming aware of unauthorized access", "correct": true },
+        { "label": "Within 72 hours of discovering the incident, the same window that applies to vendors" },
+        { "label": "Within 30 days after the investigation is finished and the scope is confirmed" },
+        { "label": "Within 60 days, once breach counsel has reviewed and approved the notice wording" }
       ],
       "explanation": "Section 2.6 of your IRP matches the rule: notice is due as soon as practicable, but not later than 30 days, after the firm becomes aware that unauthorized access to or use of customer information has occurred or is reasonably likely to have occurred. The clock does not wait for the investigation to finish.",
       "irp_ref": "Section 2.6 Legal and Regulatory Notification Standard",
@@ -522,10 +522,10 @@
       "title": "Deciding not to notify",
       "question": "When may the firm decide that client notice is not required after unauthorized access?",
       "options": [
-        { "label": "Only if a reasonable investigation shows the information has not been, and is not reasonably likely to be, used in a way that would cause substantial harm or inconvenience, and the basis is documented", "correct": true },
-        { "label": "Whenever no client has reported harm yet" },
-        { "label": "Whenever the incident happened at a vendor rather than at the firm" },
-        { "label": "Whenever fewer than 500 clients are affected" }
+        { "label": "Only if a reasonable investigation finds harm is not reasonably likely, and the basis is documented", "correct": true },
+        { "label": "Whenever no client has reported any harm or suspicious activity to the firm so far" },
+        { "label": "Whenever the incident happened at a vendor's system rather than at the firm itself" },
+        { "label": "Whenever fewer than 500 clients are affected and the data was only viewed, not copied" }
       ],
       "explanation": "Section 2.6 says notice is not required only if the firm determines the information has not been, and is not reasonably likely to be, used in a manner that would result in substantial harm or inconvenience. Section 3.7 requires a written record of that determination and the reasoning behind it.",
       "irp_ref": "Section 2.6 Legal and Regulatory Notification Standard; Section 3.7 Investigation of the Incident",
@@ -542,9 +542,9 @@
       "question": "Who can authorize a delay in Reg S-P client notice past the 30-day deadline?",
       "options": [
         { "label": "The U.S. Attorney General, by a written determination sent to the SEC", "correct": true },
-        { "label": "The firm's breach counsel" },
-        { "label": "The local police department investigating the incident" },
-        { "label": "The firm's cyber insurance carrier" }
+        { "label": "The firm's breach counsel, if the investigation needs more time" },
+        { "label": "The local police department investigating the incident, by request" },
+        { "label": "The firm's cyber insurance carrier, under the terms of the policy" }
       ],
       "explanation": "Reg S-P allows a delay only if the U.S. Attorney General determines that notice poses a substantial risk to national security or public safety and tells the SEC in writing. Section 4 of your IRP requires keeping any written documentation from the Attorney General about a delay.",
       "irp_ref": "Section 2.6 Legal and Regulatory Notification Standard; Section 4 Maintenance of Books and Records",
@@ -599,9 +599,9 @@
       "question": "Under Reg S-P, how quickly must a service provider notify the firm of a breach affecting a system that holds the firm's client information?",
       "options": [
         { "label": "As soon as possible, and no later than 72 hours after becoming aware of it", "correct": true },
-        { "label": "Within 30 days" },
-        { "label": "Within 7 business days" },
-        { "label": "Only once the provider decides clients were harmed" }
+        { "label": "Within 30 days, the same deadline that applies to notifying clients" },
+        { "label": "Within 7 business days, once the provider has confirmed the breach" },
+        { "label": "Only once the provider decides that the firm's clients were harmed" }
       ],
       "explanation": "The firm's oversight must be reasonably designed to ensure providers notify the firm as soon as possible, but no later than 72 hours after becoming aware of a breach resulting in unauthorized access to a customer information system they maintain. Section 2.7 of your IRP sets the same 72-hour window.",
       "irp_ref": "Section 2.7 Third-Party Vendor Oversight",
@@ -617,10 +617,10 @@
       "title": "When a vendor is breached",
       "question": "A vendor tells the firm it had a breach that may include client information. What happens next?",
       "options": [
-        { "label": "The CSIRT is notified and the firm starts its incident response. The firm stays responsible for notifying its clients.", "correct": true },
-        { "label": "The firm waits for the vendor's final report before doing anything" },
-        { "label": "Nothing, because the vendor must notify the firm's clients" },
-        { "label": "The firm forwards the vendor's notice to all clients the same day" }
+        { "label": "The CSIRT starts the firm's incident response, and the firm stays responsible for client notice", "correct": true },
+        { "label": "The firm waits for the vendor's final forensic report before it takes any action itself" },
+        { "label": "Nothing more is needed, because the vendor is required to notify the firm's clients directly" },
+        { "label": "The firm forwards the vendor's notice to all of its clients on the same day it arrives" }
       ],
       "explanation": "Section 2.5 says the CSIRT must be notified when the firm learns of a breach at a third party. Reg S-P requires the firm to start its incident response program when it receives the vendor's notice. A vendor may send notices for the firm under a written agreement, but the firm stays responsible for making sure they go out.",
       "irp_ref": "Section 2.5 Incident Handling Standard; Appendix A, Data Breach at Third-Party Vendor",
@@ -674,10 +674,10 @@
       "title": "Records of a notice decision",
       "question": "Which records must the firm keep about a decision on whether to notify clients?",
       "options": [
-        { "label": "The investigation and the basis for the decision, any Attorney General delay documentation, and a copy of any notice sent", "correct": true },
-        { "label": "Only copies of the notice letters that were mailed" },
-        { "label": "Only the forensic firm's final invoice" },
-        { "label": "Nothing, if the firm decided not to notify" }
+        { "label": "The basis for the decision, any Attorney General delay record, and a copy of any notice sent", "correct": true },
+        { "label": "Only copies of the notice letters that were mailed, since those show the firm acted" },
+        { "label": "Only the forensic firm's final report and invoice, which the carrier will require" },
+        { "label": "Nothing, if the firm decided notice was not required, since no notice was sent" }
       ],
       "explanation": "Section 4 of your IRP lists written documentation of any investigation and determination on whether notice is required, including the basis for the determination, any written documentation from the U.S. Attorney General about a delay, and a copy of any notice sent.",
       "irp_ref": "Section 4 Maintenance of Books and Records",

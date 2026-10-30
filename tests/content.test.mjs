@@ -116,3 +116,14 @@ test('knowledge bands are configured from highest to lowest', () => {
   const b = config.knowledgeBands;
   assert.ok(b.ready > b.refresher && b.refresher > 0 && b.ready <= 100);
 });
+
+// Test-takers learn that the longest, most detailed option is usually right.
+// Keep each correct answer within 20% of the length of its longest distractor.
+test('correct answers do not stand out by length', () => {
+  const fill = (s) => s.replace(/\{\{(\w+)\}\}/g, (_, k) => bank.facts[k]);
+  for (const q of bank.questions.filter((x) => x.type === 'knowledge')) {
+    const right = fill(q.options.find((o) => o.correct).label).length;
+    const longestWrong = Math.max(...q.options.filter((o) => !o.correct).map((o) => fill(o.label).length));
+    assert.ok(right <= longestWrong * 1.2, `${q.id}: correct ${right} chars vs longest distractor ${longestWrong}`);
+  }
+});
