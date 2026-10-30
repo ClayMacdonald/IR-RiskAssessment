@@ -1,0 +1,41 @@
+/* Login page only. Tokens, base and components are exact copies of src/styles (npm run sync:login). */
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/login/fonts/open-sans-latin-400-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/login/fonts/open-sans-latin-600-normal.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Open Sans';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/login/fonts/open-sans-latin-700-normal.woff2') format('woff2');
+}
+
+.login-card {
+  margin-top: 32px;
+}
+
+.login-card .card-footer {
+  flex-wrap: wrap;
+}
+
+.login-card input {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.site-footer a {
+  color: var(--ad-surface);
+}

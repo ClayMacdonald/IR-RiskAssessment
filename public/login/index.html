@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
+    <meta name="theme-color" content="#1B3F62" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/login/brand.css" />
+    <link rel="stylesheet" href="/login/base.css" />
+    <link rel="stylesheet" href="/login/components.css" />
+    <link rel="stylesheet" href="/login/login.css" />
+    <script type="module" src="/login/login.js"></script>
+    <title>Sign in | IRP Readiness Assessment | AdvisorDefense</title>
+  </head>
+  <body data-screen="login">
+    <div id="app">
+      <header class="site-header">
+        <div class="site-header-inner">
+          <div class="header-brand">
+            <img class="logo logo-header" src="/login/logo.svg" alt="AdvisorDefense" width="173" height="22" />
+            <span class="header-divider" aria-hidden="true"></span>
+            <span class="header-product">IRP Readiness Assessment</span>
+          </div>
+        </div>
+      </header>
+      <main id="main">
+        <div class="container">
+          <div class="title-block">
+            <p class="eyebrow">Client access</p>
+            <h1>Sign in to your assessment</h1>
+            <p class="lead">Enter the access code AdvisorDefense sent to your firm.</p>
+          </div>
+          <form class="card form-card login-card" novalidate>
+            <div class="field">
+              <label for="code">Access code</label>
+              <input id="code" name="code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="64" required />
+              <p class="field-error" id="code-error" role="alert" hidden>
+                <span>We could not sign you in with that code. Check it and try again, or contact AdvisorDefense.</span>
+              </p>
+            </div>
+            <div class="turnstile-slot" data-turnstile></div>
+            <noscript><p class="field-error">This assessment needs JavaScript turned on.</p></noscript>
+            <div class="card-footer">
+              <p class="small">Your answers stay on your device. Your session ends after 8 hours.</p>
+              <button type="submit" class="btn btn-primary" data-submit><span data-label>Sign in</span></button>
+            </div>
+          </form>
+        </div>
+      </main>
+      <footer class="site-footer">
+        <div class="site-footer-inner">
+          <p class="footer-disclaimer">Access is limited to AdvisorDefense clients. Need a code? Contact AdvisorDefense at <a href="mailto:Support@AdvisorDefense.com">Support@AdvisorDefense.com</a>.</p>
+          <p class="footer-copy">AdvisorDefense</p>
+        </div>
+      </footer>
+    </div>
+  </body>
+</html>
