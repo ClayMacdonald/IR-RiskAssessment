@@ -1,0 +1,345 @@
+{
+  "status": "Reviewed 2026-10-29 against SEC Release No. 34-100155 (rule text), the SEC fact sheet and the small entity compliance guide. See sources.md.",
+  "sections": [
+    {
+      "id": 1,
+      "name": "Incident Response Plan"
+    },
+    {
+      "id": 2,
+      "name": "Customer Notification"
+    },
+    {
+      "id": 3,
+      "name": "Service Provider Oversight"
+    },
+    {
+      "id": 4,
+      "name": "Safeguards and Records"
+    }
+  ],
+  "questions": [
+    {
+      "id": "irp_first_hour",
+      "section": 1,
+      "title": "Who does what",
+      "question": "Do you have a written incident response plan that says who does what during a cyber incident?",
+      "options": [
+        {
+          "label": "Yes, roles and steps are written down",
+          "points": 2
+        },
+        {
+          "label": "Some of it, or it is mostly in people's heads",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "In a real incident, nobody should have to guess who is in charge.",
+      "exam_finding": "The firm's written incident response plan does not assign roles, escalation steps or decision authority for detecting, responding to and recovering from unauthorized access to customer information.",
+      "mapped_service": "Incident Response Essentials"
+    },
+    {
+      "id": "data_location",
+      "section": 1,
+      "title": "Where client data lives",
+      "question": "If one of your systems were breached, could you tell which clients' information was in it?",
+      "options": [
+        {
+          "label": "Yes, we know what client information each system holds",
+          "points": 2
+        },
+        {
+          "label": "For some systems, not all",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "If you cannot tell whose information was accessed, Reg S-P generally requires notifying every client whose sensitive information was in the affected system.",
+      "exam_finding": "The firm has not identified which customer information systems hold sensitive customer information, which limits its ability to assess the scope of an incident and identify the individuals who must be notified.",
+      "mapped_service": "Cybersecurity Risk Assessment"
+    },
+    {
+      "id": "irp_exercise",
+      "section": 1,
+      "title": "Practice run",
+      "question": "Have you practiced your plan with a tabletop exercise in the last 12 months?",
+      "options": [
+        {
+          "label": "Yes, and we updated the plan afterward",
+          "points": 2
+        },
+        {
+          "label": "Yes, but over a year ago or we made no updates",
+          "points": 1
+        },
+        {
+          "label": "Never",
+          "points": 0
+        }
+      ],
+      "help": "A tabletop is a guided walk-through of a simulated incident. Reg S-P does not require one, but the SEC says firms generally should review and update their response procedures periodically, and a tabletop is the usual way to do it.",
+      "exam_finding": "The firm could not show that it periodically reviews and updates its incident response procedures, for example through a tabletop exercise followed by documented plan updates.",
+      "mapped_service": "IR Tabletop Exercise"
+    },
+    {
+      "id": "irp_outside_help",
+      "section": 1,
+      "title": "Outside help",
+      "question": "Do you know who you would call for outside help during an incident?",
+      "options": [
+        {
+          "label": "Yes, names and numbers are in the plan",
+          "points": 2
+        },
+        {
+          "label": "We have someone, but it is not written down",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "This could be your IT provider, a cybersecurity consultant or your cyber insurance company's breach hotline.",
+      "exam_finding": "The firm's incident response plan does not identify the outside resources the firm would rely on to contain and investigate an incident, or the steps required to engage them.",
+      "mapped_service": "Managed Security (MDR)"
+    },
+    {
+      "id": "notice_clock",
+      "section": 2,
+      "title": "30-day deadline",
+      "question": "Do you have a written process for notifying affected clients as soon as practicable, and no later than 30 days after you become aware of unauthorized access to client information?",
+      "options": [
+        {
+          "label": "Yes, it is written and someone owns it",
+          "points": 2
+        },
+        {
+          "label": "We know the deadline but have no written process",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "The 30 days start when you become aware that unauthorized access to or use of client information has occurred or is reasonably likely to have occurred. Notice is due as soon as practicable within that window.",
+      "exam_finding": "The firm's written policies do not define when the firm becomes aware of an incident or assign responsibility for notifying affected individuals as soon as practicable, and no later than 30 days after becoming aware of unauthorized access to or use of customer information.",
+      "mapped_service": "Incident Response Essentials"
+    },
+    {
+      "id": "notice_no_notice",
+      "section": 2,
+      "title": "Deciding not to notify",
+      "question": "If you decide a breach does not require notifying clients, do you write down why?",
+      "options": [
+        {
+          "label": "Yes, we have a set process for it",
+          "points": 2
+        },
+        {
+          "label": "We would, but there is no set process",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "Examiners will want to see how you reached that decision, not just the decision itself.",
+      "exam_finding": "The firm has no documented process for conducting and recording the reasonable investigation required to support a determination that customer notification is not required.",
+      "mapped_service": "Incident Response Essentials"
+    },
+    {
+      "id": "notice_ready",
+      "section": 2,
+      "title": "Notice ready to send",
+      "question": "Do you have a client breach notice template that includes the content Reg S-P requires?",
+      "options": [
+        {
+          "label": "Yes, and we checked it against the rule",
+          "points": 2
+        },
+        {
+          "label": "We have a draft, but have not checked it against the rule",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "The rule lists what a notice must say, including what happened, what information was involved, how to reach you and how clients can protect themselves. Drafting it during an incident eats into the 30 days you have to notify.",
+      "exam_finding": "The firm has not prepared a customer notification template containing the elements Regulation S-P requires, including a description of the incident and the information involved, contact information, and steps affected individuals can take to protect themselves.",
+      "mapped_service": "Incident Response Essentials"
+    },
+    {
+      "id": "vendor_map",
+      "section": 3,
+      "title": "Vendor list",
+      "question": "Do you have an up-to-date list of every vendor that stores or can access client information?",
+      "options": [
+        {
+          "label": "Yes, it is current",
+          "points": 2
+        },
+        {
+          "label": "Partial or out of date",
+          "points": 1
+        },
+        {
+          "label": "No",
+          "points": 0
+        }
+      ],
+      "help": "Think beyond tech: your custodian, CRM, planning software, email archiving, IT provider and shredding company all count.",
+      "exam_finding": "The firm does not maintain an inventory of service providers that receive, maintain, process or have access to customer information, which limits its ability to oversee those providers.",
+      "mapped_service": "Vendor Risk Management"
+    },
+    {
+      "id": "vendor_diligence",
+      "section": 3,
+      "title": "Vendor due diligence",
+      "question": "For each vendor that can access client information, have you reviewed and documented its security practices, and do you check them again over time?",
+      "options": [
+        {
+          "label": "Yes, for all of them",
+          "points": 2
+        },
+        {
+          "label": "Some vendors, or only when we signed them up",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "Reg S-P requires oversight of vendors through due diligence and monitoring. Reports such as a SOC 2 can help, but the review should fit the vendor and what it can access.",
+      "exam_finding": "The firm has not documented due diligence and ongoing monitoring of service providers that receive, maintain, process or have access to customer information.",
+      "mapped_service": "Vendor Risk Management"
+    },
+    {
+      "id": "vendor_72_hour",
+      "section": 3,
+      "title": "72-hour vendor notice",
+      "question": "Have your vendors that can access client information committed to notify you of a breach as soon as possible, and no later than 72 hours after they become aware of it?",
+      "options": [
+        {
+          "label": "Yes, in writing, for all of them",
+          "points": 2
+        },
+        {
+          "label": "Some vendors, or not in writing",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "Reg S-P requires your vendor oversight to ensure vendors notify you no later than 72 hours after they become aware of a breach affecting a system that holds your client information.",
+      "exam_finding": "The firm's service provider oversight does not ensure that service providers notify the firm as soon as possible, and no later than 72 hours, after becoming aware of a breach resulting in unauthorized access to a customer information system they maintain.",
+      "mapped_service": "Vendor Risk Management"
+    },
+    {
+      "id": "vendor_breach",
+      "section": 3,
+      "title": "When a vendor is breached",
+      "question": "If you received notification from one of your vendors that they had a breach that included client sensitive information, do you have a plan for what to do next?",
+      "options": [
+        {
+          "label": "Yes, it is covered in our plan",
+          "points": 2
+        },
+        {
+          "label": "We would figure it out at the time",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "A vendor's notice starts your clock. Reg S-P requires you to start your incident response plan and notify affected clients as soon as practicable, and no later than 30 days after you become aware. Your firm stays responsible for those notices, even if the vendor sends them for you.",
+      "exam_finding": "The firm's incident response program does not address how the firm will assess a service provider breach and determine whether notice to its own customers is required.",
+      "mapped_service": "Vendor Risk Management"
+    },
+    {
+      "id": "password_only",
+      "section": 4,
+      "title": "Multi-factor authentication",
+      "question": "Is multi-factor authentication (MFA) turned on for every account that can access client sensitive data?",
+      "options": [
+        {
+          "label": "Yes, every account",
+          "points": 2
+        },
+        {
+          "label": "Most accounts, with a few exceptions",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "MFA means a code or app approval on top of a password. Reg S-P does not name MFA, but it requires technical safeguards for client information, and the SEC has brought Reg S-P cases where email accounts without MFA were taken over.",
+      "exam_finding": "The firm did not consistently enforce multi-factor authentication on systems containing customer information, including accounts used by contractors and independent representatives. Examiners commonly review MFA as a technical safeguard.",
+      "mapped_service": "Cybersecurity Risk Assessment"
+    },
+    {
+      "id": "disposal",
+      "section": 4,
+      "title": "Secure disposal",
+      "question": "Do you have written procedures for securely disposing of client information, including paper records and old computers and phones?",
+      "options": [
+        {
+          "label": "Yes, written and followed",
+          "points": 2
+        },
+        {
+          "label": "We do it, but it is not written down",
+          "points": 1
+        },
+        {
+          "label": "No or not sure",
+          "points": 0
+        }
+      ],
+      "help": "Amended Reg S-P extends the disposal rule to all client information and requires written disposal policies and procedures.",
+      "exam_finding": "The firm has not adopted written policies and procedures for the proper disposal of customer and consumer information, including information stored on devices that are sold, donated or discarded.",
+      "mapped_service": "Cybersecurity Risk Assessment"
+    },
+    {
+      "id": "exam_evidence",
+      "section": 4,
+      "title": "Exam readiness",
+      "question": "If the SEC asked for your Reg S-P policies and records, could you send them within a few days?",
+      "options": [
+        {
+          "label": "Yes, everything is organized and ready",
+          "points": 2
+        },
+        {
+          "label": "Some of it, but there would be gaps",
+          "points": 1
+        },
+        {
+          "label": "No, we would be starting from scratch",
+          "points": 0
+        }
+      ],
+      "help": "Exams start with a document request. Being organized shapes the rest of the exam.",
+      "exam_finding": "The firm could not promptly produce written documentation of its incident response program, notification determinations, service provider oversight and procedures for disposal of customer information.",
+      "mapped_service": "Regulatory Exam Support"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "bookingUrl": "https://cal.com/advisordefense/regsp",
+  "siteUrl": "https://www.advisordefense.com",
+  "siteLabel": "Back to AdvisorDefense.com",
+  "tagline": "The RIA-Specific Cybersecurity Partner",
+  "phone": "(800) 456-5357",
+  "email": "Sales@AdvisorDefense.com",
+  "disclaimer": "This assessment is for informational purposes only. It is not legal advice and is not a determination of regulatory compliance.",
+  "complianceDates": {
+    "large": "December 3, 2025",
+    "small": "June 3, 2026"
+  },
+  "nextSteps": [
+    "Share this report with your CCO and firm leadership.",
+    "Close the gaps listed in this report, starting with your lowest-scoring section.",
+    "Collect the documents an examiner would request into one place.",
+    "Book a 30-minute review with AdvisorDefense to plan and stage the work."
+  ]
+}

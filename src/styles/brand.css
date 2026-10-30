@@ -1,0 +1,93 @@
+/*
+  AdvisorDefense brand tokens. Every color in the app and the PDF comes from here.
+  Built around the official logo (slate navy #1B3F62, gray #D3D3D3).
+  Colors stay plain hex: src/pdf.js reads them with getComputedStyle.
+  Contrast notes: W = on white, N = on navy-800.
+*/
+:root {
+  /* Navy scale (logo slate navy = 800) */
+  --ad-navy-950: #0F2338; /* W 15.94 */
+  --ad-navy-900: #152F4C; /* W 13.61 */
+  --ad-navy-800: #1B3F62; /* W 10.86, brand primary, headings, footer */
+  --ad-navy-700: #2B5279; /* W 8.12, eyebrows, secondary headings */
+  --ad-navy-600: #45698F; /* W 5.72, icons on light */
+  --ad-navy-300: #A9BBCF; /* N 5.53, muted text on navy */
+  --ad-navy-200: #CBD6E2; /* N 7.37, body text on navy */
+  --ad-navy-100: #E4EBF2; /* bar tracks, disabled fill */
+  --ad-navy-50: #F2F5F9; /* callouts, hover fill */
+
+  /* Official logo fills (logo artwork only, never UI text) */
+  --ad-logo-navy: #1B3F62;
+  --ad-logo-navy-text: #1A3E62;
+  --ad-logo-gray: #D3D3D3;
+  --ad-logo-gray-mark: #D2D2D2;
+
+  /* Interactive: buttons, links, selected, focus */
+  --ad-blue-600: #1F5FAD; /* W 6.37 */
+  --ad-blue-700: #194F91; /* W 8.18, hover */
+  --ad-blue-800: #143F74; /* W 10.54, active */
+  --ad-blue-100: #BFD3EC; /* input focus halo */
+  --ad-blue-50: #EAF1FA; /* selected option fill */
+  --ad-focus: #1F5FAD;
+  --ad-focus-on-dark: #FFFFFF;
+
+  /* Sky accent (shared with the IR Tabletop platform). Decorative and dark-surface use only.
+     Never white text on sky (2.83). Sky-500 on white is 2.83, so use sky-700 for sky text on light. */
+  --ad-sky-700: #0077A8; /* W 5.00, sky text on light */
+  --ad-sky-500: #00A4E4; /* accent fill, rules, icon tiles; navy-950 text on it is 5.64 */
+  --ad-sky-400: #33B6EA; /* accent hover; navy-950 text on it is 6.84 */
+  --ad-sky-300: #5CC5EE; /* N 5.52, sky text and icons on navy */
+  --ad-sky-50: #E5F6FC; /* tint */
+
+  /* On-dark overlays (hero tiles). Not read by the PDF. */
+  --ad-on-dark-fill: #FFFFFF14;
+  --ad-on-dark-border: #FFFFFF33;
+
+  /* Neutrals */
+  --ad-ink: #18222E; /* W 16.07, primary text */
+  --ad-text-body: #3A4654; /* W 9.62, paragraphs */
+  --ad-text-muted: #5A6573; /* W 5.93, hints and meta */
+  --ad-border-strong: #7B8794; /* W 3.66, input borders */
+  --ad-gray-400: #9AA4AF; /* decorative only */
+  --ad-border: #D8DEE5;
+  --ad-border-subtle: #E6EAEF;
+  --ad-bg: #F5F7FA;
+  --ad-surface: #FFFFFF;
+
+  /* Bands: 700 = text and solid fill, 200 = tint border, 50 = tint */
+  --ad-success-700: #17683F; /* W 6.80 */
+  --ad-success-200: #B5D9C4;
+  --ad-success-50: #E7F3EC;
+  --ad-warning-700: #8F5200; /* W 6.22 */
+  --ad-warning-200: #EBCB94;
+  --ad-warning-50: #FBF1E0;
+  --ad-danger-700: #B42318; /* W 6.57 */
+  --ad-danger-200: #F1B9B3;
+  --ad-danger-50: #FCEBE9;
+
+  /* Shadows (navy-950 based) */
+  --ad-shadow-xs: 0 1px 2px rgba(15, 35, 56, 0.06);
+  --ad-shadow-sm: 0 1px 2px rgba(15, 35, 56, 0.06), 0 2px 6px rgba(15, 35, 56, 0.06);
+  --ad-shadow-md: 0 2px 4px rgba(15, 35, 56, 0.04), 0 8px 24px rgba(15, 35, 56, 0.08);
+  --ad-shadow-lg: 0 4px 8px rgba(15, 35, 56, 0.04), 0 20px 48px rgba(15, 35, 56, 0.12);
+
+  /* Radius */
+  --ad-radius-xs: 4px;
+  --ad-radius-sm: 6px;
+  --ad-radius-md: 8px;
+  --ad-radius-lg: 12px;
+  --ad-radius-pill: 9999px;
+
+  /* Layout */
+  --ad-w-form: 720px;
+  --ad-w-results: 880px;
+  --ad-w-gate: 960px;
+  --ad-w-page: 1200px;
+
+  /* Motion */
+  --ad-dur-fast: 120ms;
+  --ad-dur-base: 180ms;
+  --ad-dur-slow: 320ms;
+  --ad-dur-score: 700ms;
+  --ad-ease: cubic-bezier(0.2, 0, 0, 1);
+}
