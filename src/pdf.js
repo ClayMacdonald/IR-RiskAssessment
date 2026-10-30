@@ -1,7 +1,10 @@
 import { jsPDF } from 'jspdf';
 import config from './content/config.json';
-import { QUESTIONS, SECTIONS, band, maxPoints, examinedRecently } from './scoring.js';
+import { correctIndex, isCorrect, knowledgeBand, maxPoints, readinessBand } from './scoring.js';
+import { audienceFor } from './roles.js';
 import { loadLogoForPdf } from './logo.js';
+import { shortRule } from './screens/question.js';
+import { formatWhen } from './util.js';
 
 const PAGE_W = 612;
 const MARGIN = 54;
@@ -12,7 +15,6 @@ const BAND_N = 40;
 const TOP_1 = 116;
 const TOP_N = 72;
 const BOTTOM = 732;
-const SECTION_STATUS = { success: 'Exam-ready', warning: 'Gaps noted', danger: 'High exposure' };
 
 // Colors come from src/styles/brand.css so the PDF never drifts from the site.
 function brandColors() {
@@ -25,7 +27,6 @@ function brandColors() {
     navy200: get('navy-200'),
     navy100: get('navy-100'),
     navy50: get('navy-50'),
-    blue600: get('blue-600'),
     ink: get('ink'),
     body: get('text-body'),
     muted: get('text-muted'),
@@ -38,10 +39,6 @@ function brandColors() {
   };
 }
 
-function today() {
-  return new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
 function slug(value) {
   return value.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 60) || 'Firm';
 }
@@ -50,14 +47,17 @@ export async function generateReport(state, results) {
   const c = brandColors();
   const logo = await loadLogoForPdf();
   const doc = new jsPDF({ unit: 'pt', format: 'letter' });
-  const firm = state.details.firmName;
+  const { details, answers, bank } = state;
+  const firm = details.firmName;
+  const when = state.completedAt || new Date();
+  const staff = audienceFor(details.role) === 'staff';
   let y = TOP_1;
 
   doc.setProperties({
-    title: `${firm}: Reg S-P Readiness Report`,
+    title: `${firm}: IRP and Reg S-P Readiness Report`,
     author: 'AdvisorDefense',
-    subject: 'Reg S-P Readiness Score',
-    creator: 'AdvisorDefense Reg S-P Readiness Score',
+    subject: `IRP and Reg S-P readiness record for ${details.name}`,
+    creator: `AdvisorDefense ${config.productName}`,
   });
 
   // ---------- primitives ----------
@@ -70,10 +70,10 @@ export async function generateReport(state, results) {
   function lines(text, size, width, style = 'normal') {
     doc.setFont('helvetica', style);
     doc.setFontSize(size);
-    return doc.splitTextToSize(text, width);
+    return doc.splitTextToSize(String(text), width);
   }
 
-  // Draws wrapped text at the current font settings. Returns the height used.
+  // Draws wrapped text. Returns the height used.
   function block(text, x, top, { size, width, lh, style = 'normal', color = c.body }) {
     const ls = lines(text, size, width, style);
     font(size, style, color);
@@ -102,7 +102,7 @@ export async function generateReport(state, results) {
     doc.rect(0, 0, PAGE_W, BAND_1, 'F');
     logoAt(MARGIN, 31, 22);
     font(8, 'bold', c.white);
-    doc.text('REG S-P READINESS REPORT', RIGHT, 46, { align: 'right', charSpace: 1.2 });
+    doc.text(config.reportTitle, RIGHT, 46, { align: 'right', charSpace: 1.2 });
   }
 
   function runningBand() {
@@ -111,9 +111,9 @@ export async function generateReport(state, results) {
     logoAt(MARGIN, 13, 14);
     font(8, 'normal', c.white);
     let name = firm;
-    while (doc.getTextWidth(name) > 260 && name.length > 4) name = name.slice(0, -2);
+    while (doc.getTextWidth(name) > 220 && name.length > 4) name = name.slice(0, -2);
     if (name !== firm) name = `${name.trimEnd()}...`;
-    doc.text(`Reg S-P Readiness Report · ${name}`, RIGHT, 24, { align: 'right' });
+    doc.text(`IRP and Reg S-P Readiness Report · ${name}`, RIGHT, 24, { align: 'right' });
   }
 
   function newPage() {
@@ -126,14 +126,14 @@ export async function generateReport(state, results) {
     if (y + space > BOTTOM) newPage();
   }
 
-  function chip(xRight, top, label, tone, h = 14) {
+  function chip(x, top, label, tone, h = 14) {
     font(8, 'bold', tone[700]);
     const w = doc.getTextWidth(label) + 14;
     doc.setFillColor(tone[50]);
     doc.setDrawColor(tone[200]);
     doc.setLineWidth(0.5);
-    doc.roundedRect(xRight - w, top, w, h, h / 2, h / 2, 'FD');
-    doc.text(label, xRight - w / 2, top + h / 2 + 2.8, { align: 'center' });
+    doc.roundedRect(x, top, w, h, h / 2, h / 2, 'FD');
+    doc.text(label, x + w / 2, top + h / 2 + 2.8, { align: 'center' });
     return w;
   }
 
@@ -150,24 +150,30 @@ export async function generateReport(state, results) {
     y += 14;
   }
 
-  const toneOf = (pct) => c[band(pct).tone];
+  function subHeading(text, keepWith = 40) {
+    ensure(24 + keepWith);
+    font(10.5, 'bold', c.navy700);
+    doc.text(text, MARGIN, y + 10);
+    y += 20;
+  }
+
+  const refLine = (q) => `Your IRP: ${q.irp_ref}   ·   Reg S-P: ${shortRule(q.regsp_ref)}`;
 
   // ---------- page 1: cover ----------
   firstBand();
-  const titleH = block(firm, MARGIN, y, { size: 24, width: CONTENT_W, lh: 30, style: 'bold', color: c.navy800 });
-  y += titleH + 2;
+  y += block(firm, MARGIN, y, { size: 24, width: CONTENT_W, lh: 30, style: 'bold', color: c.navy800 }) + 2;
   font(12, 'normal', c.muted);
-  doc.text('Reg S-P Readiness Score', MARGIN, y + 10);
-  y += 18 + 20;
+  doc.text('IRP knowledge and Reg S-P readiness record', MARGIN, y + 10);
+  y += 38;
 
-  // Meta grid: 2 columns x 3 rows
+  const shown = results.questions;
   const meta = [
-    ['Prepared for', `${state.lead.name}${state.lead.role ? `, ${state.lead.role}` : ''}`],
-    ['Report date', today()],
-    ['Regulatory AUM', state.details.aum],
-    ['Reg S-P compliance date', results.complianceDate],
-    ['Examined since compliance date', state.details.examined],
-    ['', ''],
+    ['Completed by', details.name],
+    ['Role', details.role],
+    ['Completed', formatWhen(when)],
+    ['Question path', staff ? 'Staff (Supervised Person FAQ)' : 'CSIRT and firm leadership'],
+    ['IRP version', bank.irpVersion],
+    ['Questions answered', `${shown.filter((q) => answers[q.id] != null).length} of ${shown.length}`],
   ];
   const cellW = CONTENT_W / 2;
   const rowH = 40;
@@ -180,208 +186,258 @@ export async function generateReport(state, results) {
   doc.line(MARGIN, y + rowH, RIGHT, y + rowH);
   doc.line(MARGIN, y + rowH * 2, RIGHT, y + rowH * 2);
   meta.forEach(([k, v], i) => {
-    if (!k) return;
     const cx = MARGIN + (i % 2) * cellW + 12;
     const cy = y + Math.floor(i / 2) * rowH;
     font(7, 'bold', c.muted);
     doc.text(k.toUpperCase(), cx, cy + 14, { charSpace: 0.6 });
-    font(10.5, 'normal', c.ink);
+    font(10, 'normal', c.ink);
     doc.text(doc.splitTextToSize(String(v), cellW - 24)[0], cx, cy + 29);
   });
   y += rowH * 3 + 20;
 
-  // Score panel
-  const panelH = 128;
-  const t = c[results.band.tone];
-  doc.setFillColor(c.navy50);
-  doc.setDrawColor(c.navy100);
-  doc.setLineWidth(0.75);
-  doc.roundedRect(MARGIN, y, CONTENT_W, panelH, 6, 6, 'FD');
-
-  const lx = MARGIN + 20;
-  font(7, 'bold', c.muted);
-  doc.text('OVERALL SCORE', lx, y + 24, { charSpace: 0.8 });
-  font(52, 'bold', c.navy800);
-  const scoreStr = String(results.score);
-  doc.text(scoreStr, lx, y + 78);
-  const sw = doc.getTextWidth(scoreStr);
-  font(14, 'normal', c.muted);
-  doc.text('/ 100', lx + sw + 6, y + 78);
-  font(9, 'bold', c.white);
-  const badgeW = doc.getTextWidth(results.band.label) + 20;
-  doc.setFillColor(t[700]);
-  doc.roundedRect(lx, y + 92, badgeW, 20, 10, 10, 'F');
-  doc.text(results.band.label, lx + 10, y + 105);
-
-  const sx = MARGIN + 220;
-  const sW = RIGHT - 20 - sx;
-  font(7, 'bold', c.muted);
-  doc.text('WHERE YOUR SCORE FALLS', sx, y + 24, { charSpace: 0.8 });
-  const zones = [
-    [0, 60, c.danger[200]],
-    [60, 85, c.warning[200]],
-    [85, 100, c.success[200]],
-  ];
-  zones.forEach(([a, b, col]) => {
-    doc.setFillColor(col);
-    doc.rect(sx + (sW * a) / 100, y + 46, (sW * (b - a)) / 100, 8, 'F');
+  // Score panels: Program Readiness and IRP Knowledge side by side (Knowledge only for staff).
+  const panels = [];
+  if (results.readiness) {
+    panels.push({
+      label: 'PROGRAM READINESS',
+      result: results.readiness,
+      note: 'How an examiner would likely see the program. 85 and up Exam-ready, 60 to 84 Gaps an examiner would note, below 60 High exposure.',
+    });
+  }
+  const kb = config.knowledgeBands;
+  panels.push({
+    label: 'IRP KNOWLEDGE',
+    result: results.knowledge,
+    note: `${results.knowledge.correct} of ${results.knowledge.total} answered the way the IRP says. ${kb.ready} and up Ready to respond, ${kb.refresher} to ${kb.ready - 1} Refresher recommended, below ${kb.refresher} Retraining needed.`,
   });
-  const mx = sx + (sW * results.score) / 100;
-  doc.setFillColor(c.navy800);
-  doc.rect(mx - 1, y + 42, 2, 16, 'F');
-  font(8, 'bold', c.navy800);
-  doc.text(scoreStr, Math.min(Math.max(mx, sx + 6), sx + sW - 6), y + 38, { align: 'center' });
-  const legend = [
-    [c.danger[200], '0 to 59', 'High exposure'],
-    [c.warning[200], '60 to 84', 'Gaps an examiner would note'],
-    [c.success[200], '85 to 100', 'Exam-ready'],
-  ];
-  legend.forEach(([col, range, label], i) => {
-    const ly = y + 76 + i * 13;
-    doc.setFillColor(col);
-    doc.rect(sx, ly - 6, 6, 6, 'F');
-    font(7.5, 'bold', c.body);
-    doc.text(range, sx + 12, ly);
-    font(7.5, 'normal', c.body);
-    doc.text(label, sx + 56, ly);
+  const gap = 16;
+  const pW = panels.length === 2 ? (CONTENT_W - gap) / 2 : CONTENT_W;
+  const noteH = Math.max(...panels.map((p) => height(p.note, 8, pW - 32, 11)));
+  const panelH = 116 + noteH;
+  panels.forEach((p, i) => {
+    const px = MARGIN + i * (pW + gap);
+    const t = c[p.result.band.tone];
+    doc.setFillColor(c.navy50);
+    doc.setDrawColor(c.navy100);
+    doc.setLineWidth(0.75);
+    doc.roundedRect(px, y, pW, panelH, 6, 6, 'FD');
+    font(7, 'bold', c.muted);
+    doc.text(p.label, px + 16, y + 22, { charSpace: 0.8 });
+    font(44, 'bold', c.navy800);
+    const s = String(p.result.score);
+    doc.text(s, px + 16, y + 68);
+    const sw = doc.getTextWidth(s);
+    font(13, 'normal', c.muted);
+    doc.text('/ 100', px + 16 + sw + 6, y + 68);
+    font(9, 'bold', c.white);
+    const bw = doc.getTextWidth(p.result.band.label) + 20;
+    doc.setFillColor(t[700]);
+    doc.roundedRect(px + 16, y + 80, bw, 20, 10, 10, 'F');
+    doc.text(p.result.band.label, px + 26, y + 93);
+    block(p.note, px + 16, y + 108, { size: 8, width: pW - 32, lh: 11, color: c.body });
   });
   y += panelH + 20;
 
-  // Section table
-  sectionHeading('Score by section');
-  doc.setFillColor(c.navy50);
-  doc.rect(MARGIN, y, CONTENT_W, 20, 'F');
-  font(7, 'bold', c.muted);
-  doc.text('SECTION', MARGIN + 8, y + 13, { charSpace: 0.6 });
-  doc.text('SCORE', MARGIN + 250, y + 13, { charSpace: 0.6 });
-  doc.text('STATUS', RIGHT - 8, y + 13, { align: 'right', charSpace: 0.6 });
-  y += 20;
-  results.sections.forEach((s) => {
-    const tone = toneOf(s.percent);
-    font(10, 'bold', c.ink);
-    doc.text(s.name, MARGIN + 8, y + 16.5);
-    doc.setFillColor(c.navy100);
-    doc.roundedRect(MARGIN + 250, y + 10.5, 140, 5, 2.5, 2.5, 'F');
-    if (s.percent > 0) {
-      doc.setFillColor(tone[700]);
-      doc.roundedRect(MARGIN + 250, y + 10.5, Math.max((140 * s.percent) / 100, 5), 5, 2.5, 2.5, 'F');
+  // ---------- crosswalk ----------
+  const cols = [
+    { title: 'LIFECYCLE SECTION', w: 104 },
+    { title: 'YOUR IRP', w: 150 },
+    { title: 'REG S-P REQUIREMENT', w: 150 },
+    { title: 'YOUR RESULT', w: CONTENT_W - 404 },
+  ];
+  const resultLines = (row) =>
+    [
+      row.knowledge ? `Knowledge: ${row.knowledge.correct} of ${row.knowledge.total}` : null,
+      row.readiness ? `Readiness: ${row.readiness.percent}%` : null,
+    ].filter(Boolean);
+  const cells = (row) => [row.name, row.irp_sections, row.regsp_requirement, resultLines(row).join('\n')];
+  const rowHeight = (row) =>
+    Math.max(...cells(row).map((txt, i) => height(txt, 8.5, cols[i].w - 10, 11.5, i === 0 ? 'bold' : 'normal'))) + 14;
+
+  function crosswalkHeader() {
+    doc.setFillColor(c.navy50);
+    doc.rect(MARGIN, y, CONTENT_W, 20, 'F');
+    font(7, 'bold', c.muted);
+    let x = MARGIN + 6;
+    cols.forEach((col) => {
+      doc.text(col.title, x, y + 13, { charSpace: 0.5 });
+      x += col.w;
+    });
+    y += 20;
+  }
+
+  const xwIntro = 'Each part of the incident response lifecycle, the sections of the firm\'s IRP that cover it, the Reg S-P requirement those sections satisfy, and this person\'s result. This is how the IRP shows the firm meets Reg S-P.';
+  sectionHeading('How the IRP meets Reg S-P', height(xwIntro, 9.5, CONTENT_W, 13.5) + 30 + rowHeight(results.crosswalk[0]));
+  y += block(xwIntro, MARGIN, y, { size: 9.5, width: CONTENT_W, lh: 13.5 }) + 8;
+  crosswalkHeader();
+  results.crosswalk.forEach((row) => {
+    const h = rowHeight(row);
+    if (y + h > BOTTOM) {
+      newPage();
+      crosswalkHeader();
     }
-    font(10, 'bold', c.ink);
-    doc.text(`${s.percent}%`, MARGIN + 426, y + 16.5, { align: 'right' });
-    chip(RIGHT - 4, y + 6, SECTION_STATUS[band(s.percent).tone], tone);
-    y += 26;
+    let x = MARGIN + 6;
+    cells(row).forEach((txt, i) => {
+      if (i === 3) {
+        const lns = resultLines(row);
+        lns.forEach((ln, li) => {
+          const isK = ln.startsWith('Knowledge');
+          const tone = isK
+            ? c[knowledgeBand(Math.round((row.knowledge.correct / row.knowledge.total) * 100), kb).tone]
+            : c[readinessBand(row.readiness.percent).tone];
+          doc.setFillColor(tone[700]);
+          doc.circle(x + 3, y + 10.5 + li * 11.5, 2.5, 'F');
+          font(8.5, 'normal', c.ink);
+          doc.text(ln, x + 10, y + 13.5 + li * 11.5);
+        });
+      } else {
+        block(txt, x, y + 7, { size: 8.5, width: cols[i].w - 10, lh: 11.5, style: i === 0 ? 'bold' : 'normal', color: i === 0 ? c.navy800 : c.body });
+      }
+      x += cols[i].w;
+    });
+    y += h;
     doc.setDrawColor(c.borderSubtle);
     doc.setLineWidth(0.5);
     doc.line(MARGIN, y, RIGHT, y);
   });
-  y += 12;
+  y += 16;
 
-  // Priority findings
-  const textW = RIGHT - 12 - (MARGIN + 36);
-  const findingCardH = (q) => 12 + 15 + height(q.exam_finding, 10, textW, 14.5) + 4 + 12 + 10;
-  sectionHeading('What an examiner would likely note', results.findings.length ? findingCardH(results.findings[0]) : 50);
-  if (results.findings.length) {
-    results.findings.forEach((q, i) => {
-      const cardH = findingCardH(q);
-      ensure(cardH + 10);
-      doc.setDrawColor(c.border);
-      doc.setLineWidth(0.75);
-      doc.roundedRect(MARGIN, y, CONTENT_W, cardH, 4, 4, 'S');
-      doc.setFillColor(c.navy800);
-      doc.circle(MARGIN + 20, y + 20, 8, 'F');
-      font(8.5, 'bold', c.white);
-      doc.text(String(i + 1), MARGIN + 20, y + 23, { align: 'center' });
-      font(11, 'bold', c.navy800);
-      doc.text(q.title, MARGIN + 36, y + 23);
-      const used = block(q.exam_finding, MARGIN + 36, y + 30, { size: 10, width: textW, lh: 14.5 });
-      const sy = y + 30 + used + 12;
-      font(8.5, 'normal', c.muted);
-      const lbl = 'Related AdvisorDefense service: ';
-      const lblW = doc.getTextWidth(lbl);
-      doc.text(lbl, MARGIN + 36, sy);
-      font(8.5, 'bold', c.navy700);
-      doc.text(q.mapped_service, MARGIN + 36 + lblW, sy);
-      y += cardH + 10;
+  // ---------- findings ----------
+  const fx = MARGIN + 36;
+  const fW = RIGHT - 12 - fx;
+
+  function card(title, rowsOf, mark, tone) {
+    const rows = rowsOf.filter(Boolean);
+    const rowsH = rows.reduce((h, r) => h + height(r.text, r.size || 9.5, fW, 13.5, r.style) + (r.gap ?? 4), 0);
+    const cardH = 12 + 15 + rowsH + 10;
+    ensure(cardH + 10);
+    doc.setDrawColor(c.border);
+    doc.setLineWidth(0.75);
+    doc.roundedRect(MARGIN, y, CONTENT_W, cardH, 4, 4, 'S');
+    doc.setFillColor(tone);
+    doc.circle(MARGIN + 20, y + 20, 8, 'F');
+    font(8.5, 'bold', c.white);
+    doc.text(mark, MARGIN + 20, y + 23, { align: 'center' });
+    font(11, 'bold', c.navy800);
+    doc.text(lines(title, 11, fW, 'bold')[0], fx, y + 23);
+    let ry = y + 30;
+    rows.forEach((r) => {
+      ry += block(r.text, fx, ry, { size: r.size || 9.5, width: fW, lh: 13.5, style: r.style, color: r.color || c.body }) + (r.gap ?? 4);
+    });
+    y += cardH + 10;
+    return cardH;
+  }
+
+  const cardHeightGuess = 120;
+  if (results.readiness) {
+    sectionHeading('Program readiness gaps', results.gaps.length ? cardHeightGuess : 40);
+    if (results.gaps.length) {
+      results.gaps.forEach(({ q }, i) =>
+        card(
+          q.title,
+          [
+            { text: `Answer given: ${q.options[answers[q.id]]?.label ?? 'Not answered'}`, color: c.muted },
+            { text: q.exam_finding, color: c.ink },
+            { text: refLine(q), size: 8.5, color: c.muted },
+            { text: `Related AdvisorDefense service: ${q.mapped_service}`, size: 8.5, color: c.navy700, style: 'bold' },
+          ],
+          String(i + 1),
+          c.navy800
+        )
+      );
+    } else {
+      y += block('No readiness gaps from these answers. Keep the evidence current.', MARGIN, y, { size: 10, width: CONTENT_W, lh: 14.5, color: c.success[700] }) + 10;
+    }
+  }
+
+  sectionHeading('Knowledge to review', results.missed.length ? cardHeightGuess + 20 : 40);
+  if (results.missed.length) {
+    results.missedBySection.forEach((g) => {
+      subHeading(g.section.name, cardHeightGuess);
+      g.questions.forEach((q) =>
+        card(
+          q.title,
+          [
+            { text: q.question, color: c.ink },
+            { text: `Answer given: ${q.options[answers[q.id]]?.label ?? 'Not answered'}`, color: c.muted },
+            { text: `IRP answer: ${q.options[correctIndex(q)].label}`, style: 'bold', color: c.success[700] },
+            { text: q.explanation },
+            { text: refLine(q), size: 8.5, color: c.muted },
+          ],
+          '!',
+          c.warning[700]
+        )
+      );
     });
   } else {
-    const msg = 'Based on your answers, an examiner would not likely note gaps in these areas. Keep the evidence current.';
-    const h = height(msg, 10, CONTENT_W - 28, 14.5) + 24;
-    doc.setFillColor(c.success[50]);
-    doc.setDrawColor(c.success[200]);
-    doc.setLineWidth(0.75);
-    doc.roundedRect(MARGIN, y, CONTENT_W, h, 4, 4, 'FD');
-    block(msg, MARGIN + 14, y + 12, { size: 10, width: CONTENT_W - 28, lh: 14.5, color: c.success[700] });
-    y += h + 10;
-  }
-  if (examinedRecently(state.details.examined)) {
-    const msg = 'Compare these findings against any deficiency letter or document request you received.';
-    const h = height(msg, 9.5, CONTENT_W - 28, 13.5, 'bold') + 20;
-    ensure(h);
-    doc.setFillColor(c.navy50);
-    doc.roundedRect(MARGIN, y, CONTENT_W, h, 4, 4, 'F');
-    block(msg, MARGIN + 14, y + 10, { size: 9.5, width: CONTENT_W - 28, lh: 13.5, style: 'bold', color: c.ink });
-    y += h + 10;
+    y += block('Every knowledge question was answered the way the IRP says.', MARGIN, y, { size: 10, width: CONTENT_W, lh: 14.5, color: c.success[700] }) + 10;
   }
 
   // ---------- question by question ----------
   newPage();
-  sectionHeading('Your answers, question by question');
+  sectionHeading('Every question and answer');
   const qx = MARGIN + 16;
   const qW = RIGHT - qx;
-  results.sections.forEach((section, si) => {
-    ensure(22 + 14 + 90);
+  results.crosswalk.forEach((section) => {
+    ensure(22 + 14 + 100);
     doc.setFillColor(c.navy800);
     doc.roundedRect(MARGIN, y, CONTENT_W, 22, 3, 3, 'F');
     font(8.5, 'bold', c.white);
     doc.text(section.name.toUpperCase(), MARGIN + 10, y + 14.5, { charSpace: 0.8 });
-    font(8.5, 'bold', c.navy200);
-    doc.text(`SECTION SCORE ${section.percent}%`, RIGHT - 10, y + 14.5, { align: 'right' });
+    font(8, 'bold', c.navy200);
+    doc.text(resultLines(section).join('   ·   ').toUpperCase(), RIGHT - 10, y + 14.5, { align: 'right' });
     y += 22 + 14;
 
-    const qs = QUESTIONS.filter((q) => q.section === SECTIONS[si].id);
+    const qs = shown.filter((q) => q.section === section.id);
     qs.forEach((q, qi) => {
-      const answer = q.options[state.answers[q.id]];
-      const max = maxPoints(q);
-      const full = answer.points === max;
-      const tone = full ? c.success : answer.points === 0 ? c.danger : c.warning;
+      const ans = answers[q.id];
+      const answer = q.options[ans];
+      const knowledge = q.type === 'knowledge';
+      const good = knowledge ? isCorrect(q, ans) : answer?.points === maxPoints(q);
+      const tone = good ? c.success : knowledge || !answer || answer.points === 0 ? c.danger : c.warning;
+      const status = knowledge ? (good ? 'Matches the IRP' : 'Differs from the IRP') : `${answer?.points ?? 0} of ${maxPoints(q)} points`;
+      const answerLabel = answer?.label ?? 'Not answered';
+      const boxText = knowledge ? q.options[correctIndex(q)].label : q.exam_finding;
+      const boxNote = knowledge ? q.explanation : `Related AdvisorDefense service: ${q.mapped_service}`;
+
       const qH = height(q.question, 10, qW, 14);
-      const aH = height(answer.label, 10, qW - 90, 14);
-      const fH = full ? 0 : height(q.exam_finding, 9.5, qW - 20, 13.5);
-      const gapH = full ? 14 : 8 + 10 + fH + 6 + 10 + 8;
-      const total = 15 + qH + 4 + 10 + aH + 6 + gapH;
-      ensure(total);
+      const aH = height(answerLabel, 10, qW - 110, 14);
+      const bH = good ? 0 : height(boxText, 9.5, qW - 20, 13.5, knowledge ? 'bold' : 'normal') + height(boxNote, 8.5, qW - 20, 12) + 34;
+      const rH = height(refLine(q), 8, qW, 11);
+      const tH = height(`How it ties together: ${q.tie_in}`, 8, qW, 11);
+      const total = 15 + qH + 4 + 10 + aH + 6 + (good ? 0 : bH + 6) + rH + 2 + tH;
+      ensure(total + 12);
 
       doc.setFillColor(tone[700]);
       doc.circle(MARGIN + 3, y + 7, 3, 'F');
       font(11, 'bold', c.ink);
-      doc.text(q.title, qx, y + 10);
+      doc.text(lines(q.title, 11, qW - 120, 'bold')[0], qx, y + 10);
+      font(7, 'bold', c.muted);
+      doc.text(knowledge ? 'IRP KNOWLEDGE' : 'PROGRAM READINESS', RIGHT, y + 10, { align: 'right', charSpace: 0.5 });
       y += 15;
       y += block(q.question, qx, y, { size: 10, width: qW, lh: 14 }) + 4;
       font(7, 'bold', c.muted);
-      doc.text('YOUR ANSWER', qx, y + 6, { charSpace: 0.6 });
-      font(8.5, 'normal', c.muted);
-      doc.text(`${answer.points} of ${max} points`, RIGHT, y + 6, { align: 'right' });
+      doc.text('ANSWER GIVEN', qx, y + 6, { charSpace: 0.6 });
+      font(8.5, 'bold', tone[700]);
+      doc.text(status, RIGHT, y + 6, { align: 'right' });
       y += 10;
-      y += block(answer.label, qx, y, { size: 10, width: qW - 90, lh: 14, color: c.ink }) + 6;
+      y += block(answerLabel, qx, y, { size: 10, width: qW - 110, lh: 14, color: c.ink }) + 6;
 
-      if (full) {
-        font(9, 'normal', c.muted);
-        doc.text('No gap noted for this question.', qx, y + 8);
-        y += 14;
-      } else {
-        const boxH = gapH - 2;
+      if (!good) {
         doc.setFillColor(tone[50]);
-        doc.roundedRect(qx, y, qW, boxH, 3, 3, 'F');
+        doc.roundedRect(qx, y, qW, bH, 3, 3, 'F');
         font(7, 'bold', tone[700]);
-        doc.text('LIKELY EXAM FINDING', qx + 10, y + 14, { charSpace: 0.6 });
-        const used = block(q.exam_finding, qx + 10, y + 18, { size: 9.5, width: qW - 20, lh: 13.5, color: c.ink });
-        font(8.5, 'normal', c.muted);
-        doc.text(`Related AdvisorDefense service: ${q.mapped_service}`, qx + 10, y + 18 + used + 10);
-        y += boxH;
+        doc.text(knowledge ? 'IRP ANSWER' : 'LIKELY EXAM FINDING', qx + 10, y + 14, { charSpace: 0.6 });
+        let by = y + 18;
+        by += block(boxText, qx + 10, by, { size: 9.5, width: qW - 20, lh: 13.5, style: knowledge ? 'bold' : 'normal', color: c.ink }) + 4;
+        block(boxNote, qx + 10, by, { size: 8.5, width: qW - 20, lh: 12, color: c.body });
+        y += bH + 6;
       }
+      y += block(refLine(q), qx, y, { size: 8, width: qW, lh: 11, color: c.muted }) + 2;
+      y += block(`How it ties together: ${q.tie_in}`, qx, y, { size: 8, width: qW, lh: 11, color: c.muted });
 
       if (qi < qs.length - 1) {
-        y += 12;
+        y += 10;
         doc.setDrawColor(c.borderSubtle);
         doc.setLineWidth(0.5);
         doc.line(qx, y, RIGHT, y);
@@ -392,11 +448,12 @@ export async function generateReport(state, results) {
     });
   });
 
-  // ---------- next steps, contact, disclaimer ----------
-  const stepsH = config.nextSteps.reduce((h, s) => h + height(s, 10, RIGHT - (MARGIN + 24), 14.5) + 6, 0);
-  ensure(60 + stepsH + 90 + 40);
-  sectionHeading('Next steps');
-  config.nextSteps.forEach((step, i) => {
+  // ---------- next steps, record statement, contact, disclaimer ----------
+  const steps = config.nextSteps[staff ? 'staff' : 'csirt'];
+  const stepsH = steps.reduce((h, s) => h + height(s, 10, RIGHT - (MARGIN + 24), 14.5) + 6, 0);
+  ensure(60 + stepsH);
+  sectionHeading('Next steps', stepsH);
+  steps.forEach((step, i) => {
     doc.setFillColor(c.navy50);
     doc.setDrawColor(c.navy100);
     doc.setLineWidth(0.5);
@@ -407,18 +464,26 @@ export async function generateReport(state, results) {
   });
   y += 12;
 
-  const boxH = 76;
+  const record = `This report records the answers ${details.name} (${details.role}) gave on ${formatWhen(when)}, against ${bank.irpVersion}. It was generated on the person's device. AdvisorDefense does not store the answers.`;
+  const recordH = height(record, 9, CONTENT_W - 28, 13) + 44;
+  const contactH = 58;
+  ensure(recordH + contactH + 60);
   doc.setFillColor(c.navy50);
   doc.setDrawColor(c.navy100);
   doc.setLineWidth(0.75);
-  doc.roundedRect(MARGIN, y, CONTENT_W, boxH, 4, 4, 'FD');
+  doc.roundedRect(MARGIN, y, CONTENT_W, recordH, 4, 4, 'FD');
   font(11, 'bold', c.navy800);
-  doc.text('Talk to AdvisorDefense', MARGIN + 14, y + 22);
+  doc.text('About this record', MARGIN + 14, y + 22);
+  block(record, MARGIN + 14, y + 32, { size: 9, width: CONTENT_W - 28, lh: 13, color: c.ink });
+  y += recordH + 12;
+
+  doc.setDrawColor(c.border);
+  doc.roundedRect(MARGIN, y, CONTENT_W, contactH, 4, 4, 'S');
+  font(11, 'bold', c.navy800);
+  doc.text('Questions about this report', MARGIN + 14, y + 22);
   font(10, 'normal', c.ink);
-  doc.text(`${config.phone}  ·  ${config.email}`, MARGIN + 14, y + 40);
-  font(10, 'normal', c.blue600);
-  doc.textWithLink('Book a 30-minute review', MARGIN + 14, y + 58, { url: config.bookingUrl });
-  y += boxH + 16;
+  doc.text(`AdvisorDefense  ·  ${config.phone}  ·  ${config.email}`, MARGIN + 14, y + 40);
+  y += contactH + 16;
 
   block(config.disclaimer, MARGIN, y, { size: 8, width: CONTENT_W, lh: 11, color: c.muted });
 
@@ -436,5 +501,6 @@ export async function generateReport(state, results) {
     doc.text(`Page ${p} of ${pages}`, RIGHT, 762, { align: 'right' });
   }
 
-  doc.save(`Reg-S-P-Readiness-${slug(firm)}.pdf`);
+  const date = when.toLocaleDateString('en-CA');
+  doc.save(`IRP-Readiness-${slug(firm)}-${slug(details.name)}-${date}.pdf`);
 }
