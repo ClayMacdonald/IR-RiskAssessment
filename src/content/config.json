@@ -1,19 +1,28 @@
 {
-  "bookingUrl": "https://cal.com/advisordefense/regsp",
+  "productName": "IRP Readiness Assessment",
+  "reportTitle": "IRP AND REG S-P READINESS REPORT",
+  "irpVersion": "AdvisorDefense IRP template 2026, version 1.0",
   "siteUrl": "https://www.advisordefense.com",
-  "siteLabel": "Back to AdvisorDefense.com",
   "tagline": "The RIA-Specific Cybersecurity Partner",
   "phone": "(800) 456-5357",
-  "email": "Sales@AdvisorDefense.com",
-  "disclaimer": "This assessment is for informational purposes only. It is not legal advice and is not a determination of regulatory compliance.",
-  "complianceDates": {
-    "large": "December 3, 2025",
-    "small": "June 3, 2026"
+  "email": "Support@AdvisorDefense.com",
+  "disclaimer": "This assessment is for training and readiness purposes only. It is not legal advice and is not a determination of regulatory compliance.",
+  "knowledgeBands": {
+    "ready": 90,
+    "refresher": 70
   },
-  "nextSteps": [
-    "Share this report with your CCO and firm leadership.",
-    "Close the gaps listed in this report, starting with your lowest-scoring section.",
-    "Collect the documents an examiner would request into one place.",
-    "Book a 30-minute review with AdvisorDefense to plan and stage the work."
-  ]
+  "nextSteps": {
+    "csirt": [
+      "File this report in the firm's compliance records as evidence of IRP training and readiness review.",
+      "Review every missed question with the CSIRT, using the IRP section listed for each.",
+      "Close the readiness gaps, starting with the lowest-scoring section.",
+      "Bring this report to the annual IRP review with AdvisorDefense to measure progress."
+    ],
+    "staff": [
+      "Give this report to the Chief Compliance Officer for the firm's compliance records.",
+      "Reread Appendix E of the IRP, the Supervised Person FAQ, for any question you missed.",
+      "Save the CSIRT contact details from Appendix D where you can find them quickly.",
+      "If you are ever unsure whether something is an incident, report it to the CSIRT."
+    ]
+  }
 }
