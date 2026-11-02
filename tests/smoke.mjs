@@ -9,10 +9,10 @@
 // node tests/smoke.mjs [baseUrl] [outputDir]. Code: SMOKE_CODE (default matches .dev.vars.example).
 //
 // Runs:
-//   A  CSIRT path, desktop, keyboard only, mixed answers, 200% zoom check, Download again
-//   B  Staff path, phone, mouse, all correct, completion notification fails (502)
-//   C  CSIRT path, 320px, mouse, all worst answers
-//   D  Staff path, desktop, keyboard only, forced colors and reduced motion
+//   A  CSIRT Lead, desktop, keyboard only, mixed answers, 200% zoom check, Download again
+//   B  Chief Compliance Officer, phone, mouse, all correct, completion notification fails (502)
+//   C  Operations, 320px, mouse, all worst answers
+//   D  Secondary Lead, desktop, keyboard only, forced colors and reduced motion
 // Plus unauthenticated checks: bundle, API and pages blocked before sign-in; generic error for a bad code.
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
@@ -22,7 +22,7 @@ import { PDFParse } from 'pdf-parse';
 import base from '../src/content/questions.json' with { type: 'json' };
 import config from '../src/content/config.json' with { type: 'json' };
 import { buildBank } from '../src/bank.js';
-import { buildResults, correctIndex, questionsFor } from '../src/scoring.js';
+import { buildResults, correctIndex } from '../src/scoring.js';
 import { completionPayload } from '../src/payload.js';
 
 const BASE = process.argv[2] || 'http://127.0.0.1:8799';
@@ -59,7 +59,7 @@ const PLANS = {
   mixed: (q, i) => (q.type === 'knowledge' ? (i % 3 === 2 ? wrongIndex(q) : correctIndex(q)) : i % 3),
   best: (q) => (q.type === 'knowledge' ? correctIndex(q) : 0),
   worst: (q) => (q.type === 'knowledge' ? wrongIndex(q) : q.options.length - 1),
-  twoWrong: (q, i) => (q.type === 'knowledge' && i < 2 ? wrongIndex(q) : correctIndex(q)),
+  twoWrong: (q, i) => (q.type === 'readiness' ? 1 : i < 2 ? wrongIndex(q) : correctIndex(q)),
 };
 
 async function run(name, { role, width, keyboard = false, plan, completionStatus = 200, forcedColors, reducedMotion, zoomCheck = false, again = false }) {
@@ -174,13 +174,15 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
     for (let k = 0; k < idx; k++) await page.keyboard.press('ArrowDown');
   } else await page.selectOption('#role', role);
   check((await page.inputValue('#role')) === role, `${name}: role selected`);
+  const roleList = await page.locator('#role option').allTextContents();
+  check(!roleList.some((r) => /staff|supervised/i.test(r)), `${name}: no staff role offered`);
   check(!(await page.isDisabled('[data-next]')), `${name}: Continue enabled when complete`);
   await shot('2-details');
   await axe('details');
   await activate('[data-next]');
 
   // ---------- questions ----------
-  const qs = questionsFor(bank, role);
+  const qs = bank.questions;
   const answers = {};
   for (let i = 0; i < qs.length; i++) {
     await page.waitForSelector(`.q-counter >> text=Question ${i + 1} of ${qs.length}`);
@@ -215,7 +217,7 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   }
 
   // ---------- results ----------
-  const expected = buildResults({ bank, role, answers }, config.knowledgeBands);
+  const expected = buildResults({ bank, answers }, config.knowledgeBands);
   await page.waitForSelector('.crosswalk');
   await page.waitForTimeout(reducedMotion ? 50 : 900);
   await shot('4-results');
@@ -224,7 +226,7 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   const ringScore = (label) => Number((rings.find((r) => r.startsWith(label)) || '').match(/(\d+) out of/)?.[1]);
   check(ringScore('IRP Knowledge') === expected.knowledge.score, `${name}: IRP Knowledge ${expected.knowledge.score} shown`);
   if (expected.readiness) check(ringScore('Program Readiness') === expected.readiness.score, `${name}: Program Readiness ${expected.readiness.score} shown`);
-  else check(rings.length === 1, `${name}: staff see Knowledge only`);
+  else check(rings.length === 1, `${name}: Knowledge only when no readiness questions`);
   const rows = await page.locator('.crosswalk tbody tr').count();
   check(rows === expected.crosswalk.length, `${name}: crosswalk has ${expected.crosswalk.length} rows`);
   check((await page.locator('.finding-missed').count()) === expected.missed.length, `${name}: ${expected.missed.length} missed knowledge questions listed`);
@@ -288,7 +290,7 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   }
   check(has(`IRP KNOWLEDGE ${expected.knowledge.score} / 100 ${expected.knowledge.band.label}`), `${name}: PDF Knowledge score and band`);
   if (expected.readiness) check(has(`PROGRAM READINESS ${expected.readiness.score} / 100 ${expected.readiness.band.label}`), `${name}: PDF Readiness score and band`);
-  else check(!has('PROGRAM READINESS'), `${name}: PDF has no readiness score for staff`);
+  else check(!has('PROGRAM READINESS'), `${name}: PDF has no readiness score when none asked`);
   for (const row of expected.crosswalk) {
     check(has(`Knowledge: ${row.knowledge.correct} of ${row.knowledge.total}`) && has(row.name), `${name}: PDF crosswalk row ${row.name}`);
   }
@@ -350,9 +352,9 @@ async function unauthenticated() {
 
 await unauthenticated();
 await run('A-csirt-desktop-keyboard', { role: 'CSIRT Lead', width: 1280, keyboard: true, plan: PLANS.mixed, zoomCheck: true, again: true });
-await run('B-staff-phone', { role: 'Staff (Supervised Person)', width: 390, plan: PLANS.best, completionStatus: 502 });
-await run('C-csirt-320', { role: 'Chief Compliance Officer', width: 320, plan: PLANS.worst });
-await run('D-staff-desktop-keyboard-forced', { role: 'Staff (Supervised Person)', width: 1280, keyboard: true, plan: PLANS.twoWrong, forcedColors: true, reducedMotion: true });
+await run('B-cco-phone', { role: 'Chief Compliance Officer', width: 390, plan: PLANS.best, completionStatus: 502 });
+await run('C-operations-320', { role: 'Operations', width: 320, plan: PLANS.worst });
+await run('D-secondary-desktop-keyboard-forced', { role: 'Secondary Lead', width: 1280, keyboard: true, plan: PLANS.twoWrong, forcedColors: true, reducedMotion: true });
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);

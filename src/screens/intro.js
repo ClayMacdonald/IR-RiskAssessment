@@ -6,7 +6,6 @@ const TIE_EXAMPLES = [2, 4, 6];
 
 export function renderIntro({ state, go }) {
   const { bank, details } = state;
-  const staffCount = bank.questions.filter((q) => q.audience.includes('staff')).length;
   const ties = bank.sections
     .filter((s) => TIE_EXAMPLES.includes(s.id))
     .map(
@@ -27,14 +26,14 @@ export function renderIntro({ state, go }) {
             <span class="hero-rule" aria-hidden="true"></span>
             ${details.firmName ? `<p class="eyebrow">Prepared for ${escapeHtml(details.firmName)}</p>` : ''}
             <h1 id="hero-title" class="display">IRP and Reg S-P Readiness</h1>
-            <p class="lead hero-lead">Check that your people know what your Incident Response Plan says, and see how each part of the plan meets amended Regulation S-P.</p>
+            <p class="lead hero-lead">Check that your CSIRT knows what your Incident Response Plan says, and see how each part of the plan meets amended Regulation S-P.</p>
             <div class="hero-actions">
               <button type="button" class="btn btn-accent btn-lg" data-start>Start the assessment ${icon('arrowRight', 18, 2)}</button>
             </div>
             <ul class="hero-stats">
-              <li class="stat"><span class="stat-value num">${bank.questions.length}</span><span class="stat-label">Questions for the CSIRT</span></li>
-              <li class="stat"><span class="stat-value num stat-accent">${staffCount}</span><span class="stat-label">Questions for staff</span></li>
-              <li class="stat"><span class="stat-value num">20<span class="stat-unit"> min</span></span><span class="stat-label">Longest path</span></li>
+              <li class="stat"><span class="stat-value num">${bank.questions.length}</span><span class="stat-label">Questions</span></li>
+              <li class="stat"><span class="stat-value num stat-accent">${bank.sections.length}</span><span class="stat-label">Sections</span></li>
+              <li class="stat"><span class="stat-value num">15<span class="stat-unit"> min</span></span><span class="stat-label">Approximate time</span></li>
             </ul>
             <ul class="trust-strip">
               <li>${icon('lock', 18)} Your answers stay in your browser</li>

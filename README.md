@@ -2,12 +2,12 @@
 
 A password-protected assessment for AdvisorDefense clients at `irp.advisordefense.com`. It does two things in one flow:
 
-- **IRP knowledge check.** Do the firm's people know what its written Incident Response Plan says and what to do?
+- **IRP knowledge check.** Does the firm's CSIRT know what its written Incident Response Plan says and what to do?
 - **Reg S-P readiness check.** Does the firm's program meet amended Regulation S-P (17 CFR 248.30, Release No. 34-100155)?
 
 Every question shows the IRP section it tests and the Reg S-P requirement that section satisfies, so the client sees that their IRP is how they meet Reg S-P. It supports the **Incident Response Risk Assessment** service: run it after the IRP is delivered, and again at each annual IRP review. The PDF is a dated training and readiness record for the client's compliance file.
 
-CSIRT members and firm leadership answer 35 questions (knowledge and program readiness). Staff answer 11 knowledge questions drawn from Appendix E, the Supervised Person FAQ.
+It is for CSIRT members and firm leadership only: 24 questions (16 IRP knowledge, 8 program readiness), about 15 minutes. There is no staff path.
 
 Answers stay in the browser, in memory only. The PDF is built on the device. When someone downloads it, one Pages Function emails AdvisorDefense a summary (see [Completion notifications](#completion-notifications)). No analytics, trackers or third-party fonts. The only third-party request is Cloudflare Turnstile.
 
@@ -49,7 +49,7 @@ npm run pages                                                    # one terminal
 npm run test:smoke                                               # another
 ```
 
-The smoke test runs against the Pages runtime, so the access gate, the Functions and the CSP in `public/_headers` all apply. It signs in, takes the CSIRT and staff paths at 320px, phone and desktop widths (two runs keyboard only, one with forced colors and reduced motion), runs axe on every screen state, checks scores, the crosswalk and the PDF text, checks that exactly one completion notice is sent with only the disclosed fields, that the report still downloads when the notice fails, and that the bundle and APIs are blocked before sign-in. Screenshots, PDFs and PDF text go to `smoke-output/` (git-ignored). The test serves a stand-in for the Turnstile script and answers `/api/completion` itself.
+The smoke test runs against the Pages runtime, so the access gate, the Functions and the CSP in `public/_headers` all apply. It signs in as four different CSIRT roles at 320px, phone and desktop widths (two runs keyboard only, one with forced colors and reduced motion), runs axe on every screen state, checks scores, the crosswalk and the PDF text, checks that exactly one completion notice is sent with only the disclosed fields, that the report still downloads when the notice fails, and that the bundle and APIs are blocked before sign-in. Screenshots, PDFs and PDF text go to `smoke-output/` (git-ignored). The test serves a stand-in for the Turnstile script and answers `/api/completion` itself.
 
 ## Access control
 
@@ -132,10 +132,10 @@ Client IRPs are tailored, so a client can have `src/content/clients/<clientId>.j
 
 Question rules (enforced by `tests/content.test.mjs`):
 
-- Every question needs `id`, `section` (1 to 8), `type`, `audience`, `title`, `question`, `options`, `irp_ref`, `regsp_ref` (a CFR cite, or `none:` with a reason), `tie_in` and `mapped_service`.
+- Every question needs `id`, `section` (1 to 8), `type`, `title`, `question`, `options`, `irp_ref`, `regsp_ref` (a CFR cite, or `none:` with a reason), `tie_in` and `mapped_service`.
 - `knowledge`: four options, exactly one `"correct": true`, plus `explanation`. The correct answer must not stand out by length. Options are shuffled per visit. No feedback during the quiz.
-- `readiness`: options score 2, 1, 0 in order, plus `help` and `exam_finding`. CSIRT path only.
-- `audience`: `["csirt"]` or `["csirt", "staff"]`. The staff path should stay at 10 to 12 questions.
+- `readiness`: options score 2, 1, 0 in order, plus `help` and `exam_finding`.
+- Size: keep the bank at 22 to 26 questions with at least two per section. Everyone answers every question; there is no audience routing.
 - Copy: plain English, short sentences. Use "aligned" and "exam-ready". Never "compliant", "certified", "pass" or "fail". No em dashes, en dashes or double hyphens. Role titles, never personal names.
 
 Scoring: Program Readiness uses the Reg S-P app's math (section percent, averaged over sections with readiness questions; 85 Exam-ready, 60 Gaps an examiner would note). IRP Knowledge is percent correct (90 Ready to respond, 70 Refresher recommended, below that Retraining needed; thresholds in `config.json`).

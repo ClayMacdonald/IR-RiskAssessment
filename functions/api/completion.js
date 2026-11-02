@@ -12,7 +12,7 @@
 // - Logs record the outcome only, never personal data.
 import bank from '../../src/content/questions.json' with { type: 'json' };
 import clients from '../_lib/clients.generated.js';
-import { ROLE_LABELS, audienceFor } from '../../src/roles.js';
+import { ROLE_LABELS } from '../../src/roles.js';
 import { allowedOrigins, clean, escapeHtml, hostnames, isLocalRequest, readJson, reply } from '../_lib/http.js';
 import { verifyTurnstile } from '../_lib/turnstile.js';
 
@@ -97,10 +97,9 @@ export function validate(body, ids) {
   const role = typeof body.role === 'string' && ROLE_LABELS.includes(body.role) ? body.role : null;
   if (!name || !email || !role || !EMAIL_RE.test(email)) return null;
 
-  // Staff never get a readiness score; the CSIRT path always does.
-  const staff = audienceFor(role) === 'staff';
+  // Null only if the client's override hides every readiness question.
   const readinessScore = body.readinessScore;
-  if (staff ? readinessScore !== null : !isScore(readinessScore)) return null;
+  if (!(readinessScore === null || isScore(readinessScore))) return null;
   if (!isScore(body.knowledgeScore)) return null;
 
   if (!Array.isArray(body.sections) || body.sections.length < 1 || body.sections.length > bank.sections.length) return null;
@@ -109,7 +108,7 @@ export function validate(body, ids) {
   for (const s of body.sections) {
     if (!s || typeof s !== 'object' || !SECTION_NAMES[s.id] || seen.has(s.id)) return null;
     seen.add(s.id);
-    if (!(s.readiness === null || isScore(s.readiness)) || (staff && s.readiness !== null)) return null;
+    if (!(s.readiness === null || isScore(s.readiness))) return null;
     if (!Number.isInteger(s.total) || s.total < 0 || s.total > 50) return null;
     if (!Number.isInteger(s.correct) || s.correct < 0 || s.correct > s.total) return null;
     sections.push({ id: s.id, readiness: s.readiness, correct: s.correct, total: s.total });
@@ -130,7 +129,7 @@ export function buildEmail(c, now = new Date()) {
     ['Name', c.name],
     ['Work email', c.email],
     ['Role', c.role],
-    ['Program Readiness', c.readinessScore === null ? 'Not asked (staff path)' : `${c.readinessScore} / 100`],
+    ['Program Readiness', c.readinessScore === null ? 'Not asked' : `${c.readinessScore} / 100`],
     ['IRP Knowledge', `${c.knowledgeScore} / 100`],
     ['Completed', when],
   ];

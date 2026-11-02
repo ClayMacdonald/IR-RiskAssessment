@@ -11,18 +11,10 @@
     "ready": 90,
     "refresher": 70
   },
-  "nextSteps": {
-    "csirt": [
-      "File this report in the firm's compliance records as evidence of IRP training and readiness review.",
-      "Review every missed question with the CSIRT, using the IRP section listed for each.",
-      "Close the readiness gaps, starting with the lowest-scoring section.",
-      "Bring this report to the annual IRP review with AdvisorDefense to measure progress."
-    ],
-    "staff": [
-      "Give this report to the Chief Compliance Officer for the firm's compliance records.",
-      "Reread Appendix E of the IRP, the Supervised Person FAQ, for any question you missed.",
-      "Save the CSIRT contact details from Appendix D where you can find them quickly.",
-      "If you are ever unsure whether something is an incident, report it to the CSIRT."
-    ]
-  }
+  "nextSteps": [
+    "File this report in the firm's compliance records as evidence of IRP training and readiness review.",
+    "Review every missed question with the CSIRT, using the IRP section listed for each.",
+    "Close the readiness gaps, starting with the lowest-scoring section.",
+    "Bring this report to the annual IRP review with AdvisorDefense to measure progress."
+  ]
 }

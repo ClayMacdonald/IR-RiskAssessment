@@ -75,7 +75,7 @@ export function renderReport({ state, go }) {
   }
 
   async function download() {
-    const results = buildResults({ bank: state.bank, role: state.details.role, answers: state.answers }, config.knowledgeBands);
+    const results = buildResults({ bank: state.bank, answers: state.answers }, config.knowledgeBands);
     notifyOnce(results);
     // jsPDF is loaded only when needed to keep the first page light.
     const { generateReport } = await import('../pdf.js');

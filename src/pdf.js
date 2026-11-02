@@ -1,7 +1,6 @@
 import { jsPDF } from 'jspdf';
 import config from './content/config.json';
 import { correctIndex, isCorrect, knowledgeBand, maxPoints, readinessBand } from './scoring.js';
-import { audienceFor } from './roles.js';
 import { loadLogoForPdf } from './logo.js';
 import { shortRule } from './screens/question.js';
 import { formatWhen } from './util.js';
@@ -50,7 +49,6 @@ export async function generateReport(state, results) {
   const { details, answers, bank } = state;
   const firm = details.firmName;
   const when = state.completedAt || new Date();
-  const staff = audienceFor(details.role) === 'staff';
   let y = TOP_1;
 
   doc.setProperties({
@@ -171,7 +169,7 @@ export async function generateReport(state, results) {
     ['Completed by', details.name],
     ['Role', details.role],
     ['Completed', formatWhen(when)],
-    ['Question path', staff ? 'Staff (Supervised Person FAQ)' : 'CSIRT and firm leadership'],
+    ['Sections', `${bank.sections.length} incident response lifecycle sections`],
     ['IRP version', bank.irpVersion],
     ['Questions answered', `${shown.filter((q) => answers[q.id] != null).length} of ${shown.length}`],
   ];
@@ -195,7 +193,7 @@ export async function generateReport(state, results) {
   });
   y += rowH * 3 + 20;
 
-  // Score panels: Program Readiness and IRP Knowledge side by side (Knowledge only for staff).
+  // Score panels: Program Readiness and IRP Knowledge side by side (Knowledge alone only if an override hides every readiness question).
   const panels = [];
   if (results.readiness) {
     panels.push({
@@ -449,7 +447,7 @@ export async function generateReport(state, results) {
   });
 
   // ---------- next steps, record statement, contact, disclaimer ----------
-  const steps = config.nextSteps[staff ? 'staff' : 'csirt'];
+  const steps = config.nextSteps;
   const stepsH = steps.reduce((h, s) => h + height(s, 10, RIGHT - (MARGIN + 24), 14.5) + 6, 0);
   ensure(60 + stepsH);
   sectionHeading('Next steps', stepsH);

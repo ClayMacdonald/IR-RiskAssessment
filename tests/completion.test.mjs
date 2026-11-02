@@ -5,7 +5,7 @@ import { handleCompletion, onRequest, buildEmail, validate } from '../functions/
 import base from '../src/content/questions.json' with { type: 'json' };
 import config from '../src/content/config.json' with { type: 'json' };
 import { buildBank } from '../src/bank.js';
-import { buildResults, correctIndex, questionsFor } from '../src/scoring.js';
+import { buildResults, correctIndex } from '../src/scoring.js';
 import { completionPayload } from '../src/payload.js';
 
 const ENV = {
@@ -21,10 +21,10 @@ const IDS = new Set(base.questions.map((q) => q.id));
 // A real payload, built the same way the browser builds it.
 function payload(role = 'CSIRT Lead') {
   const bank = buildBank(base, null, config.irpVersion);
-  const qs = questionsFor(bank, role);
+  const qs = bank.questions;
   const answers = Object.fromEntries(qs.map((q) => [q.id, q.type === 'knowledge' ? correctIndex(q) : 0]));
   answers.notice_deadline = (correctIndex(qs.find((q) => q.id === 'notice_deadline') || qs[0]) + 1) % 4;
-  const results = buildResults({ bank, role, answers }, config.knowledgeBands);
+  const results = buildResults({ bank, answers }, config.knowledgeBands);
   return { ...completionPayload({ name: 'Jordan Example', email: 'jordan@acmewealth.com', role }, results), turnstileToken: 'tok' };
 }
 
@@ -96,11 +96,11 @@ test('no session: 401 before anything else', async () => {
   assert.equal(calls.length, 0);
 });
 
-test('staff payload has no readiness score and is accepted', async () => {
-  const p = payload('Staff (Supervised Person)');
-  assert.equal(p.readinessScore, null);
-  const { res } = await run(req(p));
-  assert.equal(res.status, 200);
+test('every CSIRT role is accepted; a staff role is not', async () => {
+  for (const role of ['Chief Compliance Officer', 'Owner or Principal', 'Secondary Lead', 'Operations']) {
+    assert.equal((await run(req(payload(role)))).res.status, 200, role);
+  }
+  assert.equal(validate(payload('Staff (Supervised Person)'), IDS), null);
 });
 
 test('validation rejects bad fields', () => {
@@ -112,7 +112,7 @@ test('validation rejects bad fields', () => {
     { ...good, email: 'not-an-email' },
     { ...good, email: 'a@b.com\r\nBcc: x@y.com' },
     { ...good, role: 'Intern' },
-    { ...good, readinessScore: null },
+    { ...good, readinessScore: '80' },
     { ...good, readinessScore: 101 },
     { ...good, knowledgeScore: 55.5 },
     { ...good, sections: [] },
@@ -123,7 +123,6 @@ test('validation rejects bad fields', () => {
     { ...good, missed: ['notice_deadline', 'notice_deadline'] },
     { ...good, missed: [{ id: 'x' }] },
     { ...good, turnstileToken: 7 },
-    { ...payload('Staff (Supervised Person)'), readinessScore: 80 },
   ];
   bad.forEach((b, i) => assert.equal(validate(b, IDS), null, `case ${i}`));
 });

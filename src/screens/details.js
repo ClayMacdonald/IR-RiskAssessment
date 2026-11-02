@@ -1,5 +1,4 @@
-import { ROLES, audienceFor } from '../roles.js';
-import { questionsFor } from '../scoring.js';
+import { ROLE_LABELS } from '../roles.js';
 import { icon } from '../components/icons.js';
 import { el, escapeHtml } from '../util.js';
 
@@ -7,14 +6,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 function roleOptions(value) {
   return ['<option value="">Select one</option>']
-    .concat(ROLES.map((r) => `<option${r.label === value ? ' selected' : ''}>${escapeHtml(r.label)}</option>`))
+    .concat(ROLE_LABELS.map((r) => `<option${r === value ? ' selected' : ''}>${escapeHtml(r)}</option>`))
     .join('');
 }
 
 export function renderDetails({ state, go }) {
   const d = state.details;
-  const csirtCount = questionsFor(state.bank, 'CSIRT Lead').length;
-  const staffCount = questionsFor(state.bank, 'Staff (Supervised Person)').length;
+  const count = state.bank.questions.length;
 
   const element = el(`
     <div class="container">
@@ -41,7 +39,7 @@ export function renderDetails({ state, go }) {
           <div class="field field-full">
             <label for="role">Your role</label>
             <select id="role" name="role" required aria-describedby="role-hint">${roleOptions(d.role)}</select>
-            <p class="field-hint" id="role-hint">CSIRT members and firm leadership answer ${csirtCount} questions (about 20 minutes). Staff answer ${staffCount} (about 8 minutes).</p>
+            <p class="field-hint" id="role-hint">For CSIRT members and firm leadership. ${count} questions, about 15 minutes.</p>
           </div>
         </div>
         <p class="privacy-row">${icon('lock', 16)}<span>Your answers stay on this device. Before you download your report, the next screens show exactly what is sent to AdvisorDefense.</span></p>
@@ -71,7 +69,7 @@ export function renderDetails({ state, go }) {
 
   function update() {
     const v = read();
-    next.disabled = !(v.name && EMAIL_RE.test(v.email) && v.firmName && audienceFor(v.role));
+    next.disabled = !(v.name && EMAIL_RE.test(v.email) && v.firmName && ROLE_LABELS.includes(v.role));
     hint.hidden = !next.disabled;
     state.details = v;
   }

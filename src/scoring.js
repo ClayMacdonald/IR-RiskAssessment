@@ -7,16 +7,7 @@
 //   readiness questions scores points earned over points possible; the score is the average of those
 //   section percentages. Bands: 85 and up Exam-ready, 60 and up Gaps an examiner would note.
 // IRP Knowledge: percent of knowledge questions answered correctly. Bands from config.json.
-import { audienceFor } from './roles.js';
-
-export function questionsFor(bank, role) {
-  const audience = audienceFor(role);
-  return audience ? bank.questions.filter((q) => q.audience.includes(audience)) : [];
-}
-
-export function showsReadiness(role) {
-  return audienceFor(role) === 'csirt';
-}
+// Every person takes the whole bank: the assessment is for the CSIRT and firm leadership only.
 
 // Small seeded generator (mulberry32) so the shuffled order stays the same when going Back.
 function random(seed) {
@@ -116,9 +107,9 @@ export function missedKnowledge(questions, answers) {
   return questions.filter((q) => q.type === 'knowledge' && !isCorrect(q, answers[q.id]));
 }
 
-export function buildResults({ bank, role, answers }, bands) {
-  const questions = questionsFor(bank, role);
-  const readiness = showsReadiness(role) ? readinessScore(bank.sections, questions, answers) : null;
+export function buildResults({ bank, answers }, bands) {
+  const { questions } = bank;
+  const readiness = readinessScore(bank.sections, questions, answers);
   const knowledge = knowledgeScore(questions, answers);
   const missed = missedKnowledge(questions, answers);
   return {

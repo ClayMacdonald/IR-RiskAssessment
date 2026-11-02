@@ -30,6 +30,10 @@ Export a SCORM or xAPI completion statement (person, date, knowledge score, pass
 
 Generate a client override file directly from a client's tailored IRP .docx (CSIRT titles, criticality table, carrier) with `scripts/extract-irp.mjs`, then review it by hand.
 
+## Staff knowledge path
+
+Removed 2026-11-02 so the tool serves the CSIRT only. The 11-question staff path (Appendix E, the Supervised Person FAQ) is in git history before that date: the `audience` field, the staff role and the questions cut in that change. If AdvisorDefense later wants staff training records, restore it as a separate, shorter flow with its own report title, rather than mixing it back into the CSIRT readiness report.
+
 ## Held-out questions
 
 Add `records_retention`, `notice_contents` and `notice_unknown_individuals` once the template fixes in `docs/irp-template-discrepancies.md` are decided.

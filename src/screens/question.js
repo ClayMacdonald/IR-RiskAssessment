@@ -1,4 +1,3 @@
-import { questionsFor } from '../scoring.js';
 import { optionCards } from '../components/optionCards.js';
 import { icon } from '../components/icons.js';
 import { el, escapeHtml } from '../util.js';
@@ -9,7 +8,7 @@ export function shortRule(ref) {
 }
 
 export function renderQuestion({ state, go }) {
-  const questions = questionsFor(state.bank, state.details.role);
+  const { questions } = state.bank;
   const index = Math.min(state.questionIndex, questions.length - 1);
   const q = questions[index];
   const total = questions.length;

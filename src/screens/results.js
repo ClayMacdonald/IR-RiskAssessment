@@ -92,7 +92,7 @@ function missedGroups(groups, answers) {
 
 export function renderResults({ state, go }) {
   const { details, answers } = state;
-  const r = buildResults({ bank: state.bank, role: details.role, answers }, config.knowledgeBands);
+  const r = buildResults({ bank: state.bank, answers }, config.knowledgeBands);
   const showReadiness = Boolean(r.readiness);
 
   const knowledgeNote = `${r.knowledge.correct} of ${r.knowledge.total} questions answered the way your IRP says.`;

@@ -13,9 +13,8 @@ export const BANNED = [
   /\bpass(ed|es|ing)?\b/i,
   /\bfail(s|ed|ing|ure)?\b/i,
 ];
-const COMMON = ['id', 'section', 'type', 'audience', 'title', 'question', 'options', 'irp_ref', 'regsp_ref', 'tie_in', 'mapped_service'];
+const COMMON = ['id', 'section', 'type', 'title', 'question', 'options', 'irp_ref', 'regsp_ref', 'tie_in', 'mapped_service'];
 const BY_TYPE = { knowledge: ['explanation'], readiness: ['exam_finding', 'help'] };
-const AUDIENCES = ['csirt', 'staff'];
 
 const textOf = (q) =>
   [q.title, q.question, q.help, q.explanation, q.exam_finding, q.irp_ref, q.regsp_ref, q.tie_in, ...q.options.map((o) => o.label)]
@@ -60,23 +59,22 @@ test('readiness questions score 2, 1, 0 and a "No" answer always scores 0', () =
       assert.ok(!('correct' in o), `${q.id} readiness option marked correct`);
       if (/^(No\b|Never\b|Neither\b)/.test(o.label)) assert.equal(o.points, 0, `${q.id}: "${o.label}"`);
     }
-    assert.ok(q.audience.includes('csirt') && !q.audience.includes('staff'), `${q.id} readiness is CSIRT only`);
   }
 });
 
-test('audiences are valid and every question reaches the CSIRT path', () => {
-  for (const q of bank.questions) {
-    assert.ok(Array.isArray(q.audience) && q.audience.length, `${q.id} audience`);
-    for (const a of q.audience) assert.ok(AUDIENCES.includes(a), `${q.id} audience ${a}`);
-    assert.ok(q.audience.includes('csirt'), `${q.id} not on CSIRT path`);
-  }
+// The assessment is for the CSIRT and firm leadership only. There is no staff path.
+test('no audience routing and no staff path', () => {
+  for (const q of bank.questions) assert.ok(!('audience' in q), `${q.id} has an audience field`);
+  assert.ok(!/staff path|Supervised Person \(staff\)/i.test(JSON.stringify(bank) + JSON.stringify(config)), 'staff path copy');
 });
 
-test('bank size: about 28 to 35 questions, staff path 10 to 12', () => {
-  const staff = bank.questions.filter((q) => q.audience.includes('staff'));
-  assert.ok(bank.questions.length >= 28 && bank.questions.length <= 35, `bank has ${bank.questions.length}`);
-  assert.ok(staff.length >= 10 && staff.length <= 12, `staff path has ${staff.length}`);
-  assert.ok(staff.every((q) => q.type === 'knowledge'), 'staff see knowledge only');
+test('bank size: 22 to 26 questions, with knowledge and readiness in every lifecycle phase that needs them', () => {
+  const n = bank.questions.length;
+  assert.ok(n >= 22 && n <= 26, `bank has ${n}`);
+  for (const s of bank.sections) {
+    assert.ok(bank.questions.filter((q) => q.section === s.id).length >= 2, `section ${s.id} has at least two questions`);
+  }
+  assert.ok(bank.questions.filter((q) => q.type === 'readiness').length >= 6, 'enough readiness questions');
 });
 
 test('every regsp_ref cites the CFR or says "none:" with a reason', () => {

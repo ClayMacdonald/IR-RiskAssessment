@@ -1,53 +1,34 @@
-// Scoring for both question types, audience routing, option shuffling and client overrides.
+// Scoring for both question types, roles, option shuffling and client overrides.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import base from '../src/content/questions.json' with { type: 'json' };
 import config from '../src/content/config.json' with { type: 'json' };
 import { buildBank } from '../src/bank.js';
-import { ROLES, audienceFor } from '../src/roles.js';
-import {
-  buildResults,
-  correctIndex,
-  knowledgeBand,
-  optionOrders,
-  questionsFor,
-  readinessBand,
-} from '../src/scoring.js';
+import { ROLE_LABELS } from '../src/roles.js';
+import { buildResults, correctIndex, knowledgeBand, optionOrders, readinessBand } from '../src/scoring.js';
 
 const bank = buildBank(base, null, config.irpVersion);
 const bands = config.knowledgeBands;
-const CSIRT = 'CSIRT Lead';
-const STAFF = 'Staff (Supervised Person)';
+const qs = bank.questions;
+const knowledge = qs.filter((q) => q.type === 'knowledge');
 
-const allBest = (qs) => Object.fromEntries(qs.map((q) => [q.id, q.type === 'knowledge' ? correctIndex(q) : 0]));
-const allWorst = (qs) =>
+const allBest = () => Object.fromEntries(qs.map((q) => [q.id, q.type === 'knowledge' ? correctIndex(q) : 0]));
+const allWorst = () =>
   Object.fromEntries(qs.map((q) => [q.id, q.type === 'knowledge' ? (correctIndex(q) + 1) % 4 : q.options.length - 1]));
 
-// ---------- Routing ----------
+// ---------- Roles ----------
 
-test('every role maps to an audience; leadership roles take the CSIRT path', () => {
-  for (const r of ROLES) assert.ok(['csirt', 'staff'].includes(audienceFor(r.label)), r.label);
-  for (const r of ['Chief Compliance Officer', 'Owner or Principal', 'CSIRT Lead', 'Secondary Lead', 'Operations']) {
-    assert.equal(audienceFor(r), 'csirt', r);
-  }
-  assert.equal(audienceFor(STAFF), 'staff');
-  assert.equal(audienceFor('Intern'), null);
-  assert.deepEqual(questionsFor(bank, 'Intern'), []);
-});
-
-test('CSIRT path gets the full bank; staff get knowledge questions marked for staff only', () => {
-  assert.equal(questionsFor(bank, CSIRT).length, bank.questions.length);
-  const staff = questionsFor(bank, STAFF);
-  assert.equal(staff.length, 11);
-  assert.ok(staff.every((q) => q.type === 'knowledge' && q.audience.includes('staff')));
+test('roles are CSIRT and firm leadership only', () => {
+  assert.deepEqual(ROLE_LABELS, ['Chief Compliance Officer', 'Owner or Principal', 'CSIRT Lead', 'Secondary Lead', 'Operations']);
+  assert.ok(!ROLE_LABELS.some((r) => /staff|supervised/i.test(r)));
 });
 
 // ---------- Scoring ----------
 
-test('CSIRT, all best answers: both scores 100 and no findings', () => {
-  const qs = questionsFor(bank, CSIRT);
-  const r = buildResults({ bank, role: CSIRT, answers: allBest(qs) }, bands);
+test('all best answers: both scores 100 and no findings', () => {
+  const r = buildResults({ bank, answers: allBest() }, bands);
+  assert.equal(r.questions.length, qs.length);
   assert.equal(r.readiness.score, 100);
   assert.equal(r.readiness.band.label, 'Exam-ready');
   assert.equal(r.knowledge.score, 100);
@@ -56,24 +37,22 @@ test('CSIRT, all best answers: both scores 100 and no findings', () => {
   assert.equal(r.missed.length, 0);
 });
 
-test('CSIRT, all worst answers: both scores 0, every readiness gap and every knowledge miss listed', () => {
-  const qs = questionsFor(bank, CSIRT);
-  const r = buildResults({ bank, role: CSIRT, answers: allWorst(qs) }, bands);
+test('all worst answers: both scores 0, every readiness gap and every knowledge miss listed', () => {
+  const r = buildResults({ bank, answers: allWorst() }, bands);
   assert.equal(r.readiness.score, 0);
   assert.equal(r.readiness.band.label, 'High exposure');
   assert.equal(r.knowledge.score, 0);
   assert.equal(r.knowledge.band.label, 'Retraining needed');
   assert.equal(r.gaps.length, qs.filter((q) => q.type === 'readiness').length);
-  assert.equal(r.missed.length, qs.filter((q) => q.type === 'knowledge').length);
+  assert.equal(r.missed.length, knowledge.length);
   assert.deepEqual(r.missedBySection.map((g) => g.section.id), [1, 2, 3, 4, 5, 6, 7, 8]);
 });
 
 test('readiness uses the Reg S-P math: average of section percentages', () => {
-  const qs = questionsFor(bank, CSIRT);
-  const answers = allBest(qs);
+  const answers = allBest();
   // Section 1 has two readiness questions. Drop one to 1 point: section 1 = 3/4 = 75%.
   answers.roles_tabletop = 1;
-  const r = buildResults({ bank, role: CSIRT, answers }, bands);
+  const r = buildResults({ bank, answers }, bands);
   const sectionsWithReadiness = r.readiness.sections.length;
   assert.equal(r.readiness.sections.find((s) => s.id === 1).percent, 75);
   assert.equal(r.readiness.score, Math.round((75 + 100 * (sectionsWithReadiness - 1)) / sectionsWithReadiness));
@@ -82,31 +61,29 @@ test('readiness uses the Reg S-P math: average of section percentages', () => {
 });
 
 test('readiness gaps sort lowest points first, ties in question order', () => {
-  const qs = questionsFor(bank, CSIRT);
-  const answers = allBest(qs);
+  const answers = allBest();
   answers.roles_tabletop = 1;
   answers.records_ready = 2;
   answers.vendor_diligence = 2;
-  const r = buildResults({ bank, role: CSIRT, answers }, bands);
+  const r = buildResults({ bank, answers }, bands);
   assert.deepEqual(r.gaps.map((g) => g.q.id), ['vendor_diligence', 'records_ready', 'roles_tabletop']);
 });
 
 test('knowledge is percent correct; unanswered counts as missed', () => {
-  const qs = questionsFor(bank, STAFF);
-  const answers = allBest(qs);
-  delete answers[qs[0].id];
-  answers[qs[1].id] = (correctIndex(qs[1]) + 1) % 4;
-  const r = buildResults({ bank, role: STAFF, answers }, bands);
-  assert.equal(r.knowledge.correct, 9);
-  assert.equal(r.knowledge.total, 11);
-  assert.equal(r.knowledge.score, 82);
+  const answers = allBest();
+  delete answers[knowledge[0].id];
+  answers[knowledge[1].id] = (correctIndex(knowledge[1]) + 1) % 4;
+  const r = buildResults({ bank, answers }, bands);
+  assert.equal(r.knowledge.correct, knowledge.length - 2);
+  assert.equal(r.knowledge.total, knowledge.length);
+  assert.equal(r.knowledge.score, Math.round(((knowledge.length - 2) / knowledge.length) * 100));
   assert.equal(r.knowledge.band.label, 'Refresher recommended');
-  assert.deepEqual(r.missed.map((q) => q.id), [qs[0].id, qs[1].id]);
+  assert.deepEqual(r.missed.map((q) => q.id), [knowledge[0].id, knowledge[1].id]);
 });
 
-test('staff never get a readiness score', () => {
-  const qs = questionsFor(bank, STAFF);
-  const r = buildResults({ bank, role: STAFF, answers: allBest(qs) }, bands);
+test('an override that hides every readiness question leaves Knowledge only', () => {
+  const b = buildBank(base, { hide: qs.filter((q) => q.type === 'readiness').map((q) => q.id) }, config.irpVersion);
+  const r = buildResults({ bank: b, answers: {} }, bands);
   assert.equal(r.readiness, null);
   assert.ok(r.crosswalk.every((row) => row.readiness === null));
 });
@@ -122,24 +99,20 @@ test('band thresholds', () => {
   assert.equal(readinessBand(59).tone, 'danger');
 });
 
-test('crosswalk has one row per section seen, with IRP section, rule and result', () => {
-  const csirt = buildResults({ bank, role: CSIRT, answers: allBest(questionsFor(bank, CSIRT)) }, bands);
-  assert.equal(csirt.crosswalk.length, 8);
-  for (const row of csirt.crosswalk) {
+test('crosswalk has one row per section, with IRP section, rule and result', () => {
+  const r = buildResults({ bank, answers: allBest() }, bands);
+  assert.equal(r.crosswalk.length, 8);
+  for (const row of r.crosswalk) {
     assert.ok(row.irp_sections && row.regsp_requirement);
     assert.ok(row.knowledge.total > 0, `section ${row.id} has knowledge items`);
   }
-  assert.equal(csirt.crosswalk.find((r) => r.id === 2).readiness, null);
-  assert.equal(csirt.crosswalk.find((r) => r.id === 1).readiness.percent, 100);
-
-  const staff = buildResults({ bank, role: STAFF, answers: {} }, bands);
-  assert.deepEqual(staff.crosswalk.map((r) => r.id), [1, 2, 3, 4]);
+  assert.equal(r.crosswalk.find((x) => x.id === 2).readiness, null);
+  assert.equal(r.crosswalk.find((x) => x.id === 1).readiness.percent, 100);
 });
 
 // ---------- Shuffling ----------
 
 test('knowledge options shuffle deterministically; readiness keeps best to worst', () => {
-  const qs = questionsFor(bank, CSIRT);
   const a = optionOrders(qs, 12345);
   assert.deepEqual(a, optionOrders(qs, 12345), 'same seed, same order');
   assert.notDeepEqual(a, optionOrders(qs, 54321), 'different seed, different order');
