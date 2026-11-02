@@ -77,6 +77,7 @@ async function start() {
     if (!res.ok) throw new Error('client_unavailable');
     const client = await res.json();
     state.clientId = client.clientId;
+    state.preview = client.preview === true;
     state.details.firmName = client.firmName || '';
     state.bank = buildBank(base, client.override, config.irpVersion);
   } catch {
@@ -87,6 +88,12 @@ async function start() {
       </div></div>`)
     );
     return;
+  }
+  if (state.preview) {
+    app.insertBefore(
+      el(`<aside class="pv-banner" aria-label="Preview mode"><p><strong>Preview mode.</strong> Nothing is saved or sent. Close this tab when you are done.</p></aside>`),
+      stepperSlot
+    );
   }
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
   state.optionOrder = optionOrders(state.bank.questions, seed);

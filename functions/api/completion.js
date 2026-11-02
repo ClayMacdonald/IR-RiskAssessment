@@ -12,6 +12,7 @@
 //   a dashboard link only: no name, email address or answers. The recipient comes from config.
 // - Secrets live only in Cloudflare (RESEND_API_KEY, TURNSTILE_SECRET_KEY) and are never logged or returned.
 // - Logs record the outcome only, never personal data.
+// - An admin preview session (data.preview) is answered 200 with nothing stored or sent.
 import base from '../../src/content/questions.json' with { type: 'json' };
 import appConfig from '../../src/content/config.json' with { type: 'json' };
 import clients from '../_lib/clients.generated.js';
@@ -52,6 +53,7 @@ export async function handleCompletion(request, env, data = {}, fetchImpl = fetc
 
   const { body, error } = await readJson(ROUTE, request, config.origins);
   if (error) return error;
+  if (data.preview) return reply(ROUTE, 200, 'preview_skipped', { body: { ok: true, preview: true } });
 
   const bank = clientBank(data.clientId, overrides);
   const completion = validate(body, bank);

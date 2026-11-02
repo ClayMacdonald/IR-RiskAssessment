@@ -385,7 +385,7 @@ test('client endpoint returns only the signed-in client override', async () => {
   const overrides = { acme: { facts: { carrier: 'Carrier A' } }, other: { facts: { carrier: 'Carrier B' } } };
   const res = await clientResponse({ clientId: 'acme', firmName: 'Acme Wealth' }, overrides);
   const body = await res.json();
-  assert.deepEqual(body, { ok: true, clientId: 'acme', firmName: 'Acme Wealth', override: { facts: { carrier: 'Carrier A' } } });
+  assert.deepEqual(body, { ok: true, clientId: 'acme', firmName: 'Acme Wealth', override: { facts: { carrier: 'Carrier A' } }, preview: false });
   assert.ok(!JSON.stringify(body).includes('Carrier B'));
   const none = await (await clientResponse({ clientId: 'nobody' }, overrides)).json();
   assert.equal(none.override, null);

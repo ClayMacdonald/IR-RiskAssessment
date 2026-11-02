@@ -42,6 +42,7 @@ export async function gate({ request, env, next, data = {} }, fetchImpl = fetch)
 
   data.clientId = client.clientId;
   data.firmName = client.firmName;
+  data.preview = client.preview;
 
   return privateResponse(
     await next(),

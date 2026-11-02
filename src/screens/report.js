@@ -15,6 +15,8 @@ const REPORT_CONTENTS = [
 
 // Shown before download. Must name every field completionPayload() sends and the retention period
 // (see tests/smoke.mjs).
+export const PREVIEW_NOTICE = 'Preview mode: the PDF downloads, and nothing is saved or sent to AdvisorDefense.';
+
 export const DISCLOSURE = `When you download, your name, work email, role and answers are saved for AdvisorDefense for ${config.retentionYears} years, to review results with your firm and track progress at your annual IRP review. The PDF is built on your device.`;
 
 const SPINNER =
@@ -33,10 +35,12 @@ export function renderReport({ state, go }) {
           <div data-status tabindex="-1" data-focus-target></div>
           <p class="report-intro">Your report is ready. Download it, then give a copy to the Chief Compliance Officer for the firm's records.</p>
           ${
-            notificationsEnabled()
-              ? `<p class="privacy-row completion-notice">${icon('info', 16)}<span>${DISCLOSURE}</span></p>
+            state.preview
+              ? `<p class="privacy-row completion-notice">${icon('info', 16)}<span>${PREVIEW_NOTICE}</span></p>`
+              : notificationsEnabled()
+                ? `<p class="privacy-row completion-notice">${icon('info', 16)}<span>${DISCLOSURE}</span></p>
           <div class="turnstile-slot" data-turnstile></div>`
-              : ''
+                : ''
           }
           <div class="card-footer">
             <button type="button" class="btn btn-text" data-back>${icon('arrowLeft', 18, 2)} Back</button>
@@ -65,11 +69,12 @@ export function renderReport({ state, go }) {
   const label = submitBtn.querySelector('[data-label]');
   const status = element.querySelector('[data-status]');
   // Bot check for the notification. Renders nothing unless Cloudflare needs the person to interact.
-  const check = notificationsEnabled() ? prepareCheck(element.querySelector('[data-turnstile]')) : null;
+  const check = notificationsEnabled() && !state.preview ? prepareCheck(element.querySelector('[data-turnstile]')) : null;
 
   // Saves the assessment for AdvisorDefense once per visit. Runs alongside the PDF and never blocks it.
   function notifyOnce() {
-    if (state.notified) return;
+    // A preview never calls the server. The server also refuses to store a preview session's answers.
+    if (state.notified || state.preview) return;
     state.notified = true;
     submitCompletion(completionPayload(state.details, state.bank, state.answers), check);
   }

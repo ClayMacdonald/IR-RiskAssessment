@@ -18,6 +18,6 @@ export function clientResponse(data = {}, overrides = clients) {
   if (!data.clientId) return reply(ROUTE, 401, 'no_session');
   const override = Object.hasOwn(overrides, data.clientId) ? overrides[data.clientId] : null;
   return reply(ROUTE, 200, 'ok', {
-    body: { ok: true, clientId: data.clientId, firmName: data.firmName || '', override },
+    body: { ok: true, clientId: data.clientId, firmName: data.firmName || '', override, preview: data.preview === true },
   });
 }

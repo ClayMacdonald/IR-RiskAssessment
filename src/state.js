@@ -5,6 +5,8 @@ export const state = {
   // Set at start-up from /api/client: this client's bank, with any override merged.
   bank: null,
   clientId: '',
+  // True in an AdvisorDefense admin preview. Nothing is saved or sent.
+  preview: false,
   questionIndex: 0,
   details: { firmName: '', name: '', email: '', role: '' },
   // Question id -> option index in the bank. Never the shuffled display position.

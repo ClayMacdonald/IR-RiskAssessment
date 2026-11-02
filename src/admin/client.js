@@ -56,6 +56,11 @@ export function renderClient({ clientId, highlight = null }) {
         <p class="eyebrow">Client</p>
         <h1 data-title>${escapeHtml(clientId)}</h1>
         <div data-summary></div>
+        <div class="admin-title-actions">
+          <button type="button" class="btn btn-secondary" data-preview>Preview as this client</button>
+          <p class="field-hint">Opens the assessment in a new tab with this client's questions for one hour. Nothing is saved or sent. It replaces any client sign-in in this browser.</p>
+          <div data-preview-status></div>
+        </div>
       </div>
       <div data-body aria-busy="true"><p class="admin-loading">Loading</p></div>
     </div>`);
@@ -64,6 +69,21 @@ export function renderClient({ clientId, highlight = null }) {
   const summaryEl = element.querySelector('[data-summary]');
   const body = element.querySelector('[data-body]');
   let client = null;
+
+  // The tab is opened before the request so the browser does not treat it as an unrequested pop-up.
+  element.querySelector('[data-preview]').addEventListener('click', async () => {
+    const status = element.querySelector('[data-preview-status]');
+    status.innerHTML = '';
+    const tab = window.open('about:blank', '_blank');
+    try {
+      const res = await api.preview(clientId);
+      if (tab) tab.location.href = res.url;
+      else window.location.href = res.url;
+    } catch (err) {
+      tab?.close();
+      status.innerHTML = errorNotice(err.message);
+    }
+  });
 
   function showClient(c) {
     client = c;

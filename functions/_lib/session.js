@@ -6,6 +6,8 @@
 //
 // The session cookie carries only { cid, cv, exp } and an HMAC-SHA256 signature made with SESSION_SECRET.
 // cv is the client's code version, so issuing a new code ends sessions made with the old one.
+// An admin preview session (functions/api/admin/preview.js) also carries pv: 1. Nothing is saved or
+// sent for it.
 // Production: __Host-irp_session; HttpOnly; Secure; SameSite=Strict; Path=/.
 // Local dev (isLocalDev, set by configuration only): irp_session without Secure, so browsers that
 // refuse Secure cookies over http://localhost (Safari) keep it. The __Host- prefix requires Secure.
@@ -141,7 +143,7 @@ export async function currentClient(request, env, now = Date.now()) {
   if (!session) return null;
   const entry = await clientById(env.DB, session.cid);
   if (!isActive(entry, now) || session.cv !== entry.codeVersion) return null;
-  return { clientId: entry.clientId, firmName: entry.firmName || '' };
+  return { clientId: entry.clientId, firmName: entry.firmName || '', preview: session.pv === 1 };
 }
 
 // Shared by the admin dashboard and scripts/add-client.mjs. Returns a short reason, or null if valid.
