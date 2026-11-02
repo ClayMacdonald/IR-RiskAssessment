@@ -4,20 +4,13 @@
 // Security model (see README, "Access control"):
 // - Only from the site's own origins, JSON only, body capped at 4 KB.
 // - Turnstile token required (action "login"). A Cloudflare rate limiting rule on this path is the second layer.
-// - Codes are compared by SHA-256 hash against the ACCESS_CODES secret. Expired codes are rejected.
+// - Codes are looked up by SHA-256 hash in D1 (clients table). Expired and revoked codes are rejected.
 // - Every failure returns the same generic response, so it never hints whether a code exists.
-// - The cookie carries only clientId and expiry, signed with SESSION_SECRET.
+// - The cookie carries only clientId, code version and expiry, signed with SESSION_SECRET.
 import { allowedOrigins, hostnames, isLocalDev, readJson, reply } from '../_lib/http.js';
 import { verifyTurnstile } from '../_lib/turnstile.js';
-import {
-  SESSION_SECONDS,
-  codeExpiry,
-  findCode,
-  isActive,
-  readAccessCodes,
-  sessionCookie,
-  signSession,
-} from '../_lib/session.js';
+import { SESSION_SECONDS, codeExpiry, hashCode, isActive, sessionCookie, signSession } from '../_lib/session.js';
+import { clientByCodeHash } from '../_lib/db.js';
 
 const ROUTE = '/api/login';
 const MAX_CODE_LENGTH = 64;
@@ -37,9 +30,8 @@ export async function onRequest() {
 }
 
 export async function handleLogin(request, env, fetchImpl = fetch, now = Date.now()) {
-  const codes = readAccessCodes(env);
   const skipTurnstile = isLocalDev(env);
-  if (!codes || !env.SESSION_SECRET || (!env.TURNSTILE_SECRET_KEY && !skipTurnstile)) {
+  if (!env.DB || !env.SESSION_SECRET || (!env.TURNSTILE_SECRET_KEY && !skipTurnstile)) {
     return reply(ROUTE, 500, 'not_configured');
   }
 
@@ -64,13 +56,13 @@ export async function handleLogin(request, env, fetchImpl = fetch, now = Date.no
     if (!human) return rejected('turnstile_failed');
   }
 
-  const entry = await findCode(codes, code);
-  if (!isActive(entry, now)) return rejected(entry ? 'code_expired' : 'code_unknown');
+  const entry = await clientByCodeHash(env.DB, await hashCode(code));
+  if (!isActive(entry, now)) return rejected(!entry ? 'code_unknown' : entry.revokedAt ? 'code_revoked' : 'code_expired');
 
   // The session ends after 8 hours or when the code expires, whichever is first.
   const nowSec = Math.floor(now / 1000);
   const exp = Math.min(nowSec + SESSION_SECONDS, codeExpiry(entry));
-  const token = await signSession({ cid: entry.clientId, exp }, env.SESSION_SECRET);
+  const token = await signSession({ cid: entry.clientId, cv: entry.codeVersion, exp }, env.SESSION_SECRET);
   return reply(ROUTE, 200, 'signed_in', {
     headers: { 'Set-Cookie': sessionCookie(token, exp - nowSec, env) },
     body: { ok: true },

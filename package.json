@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "scripts": {
     "dev": "concurrently --names api,vite --prefix-colors magenta,cyan --kill-others-on-fail \"npm:dev:api\" \"node scripts/wait-for-api.mjs && npm run dev:vite\"",
@@ -17,6 +17,7 @@
     "sync:login": "node scripts/sync-login.mjs",
     "extract:irp": "node scripts/extract-irp.mjs",
     "add-client": "node scripts/add-client.mjs",
+    "import-codes": "node scripts/import-codes.mjs",
     "review:export": "node scripts/review-export.mjs",
     "test:unit": "node scripts/build-clients.mjs && node --test tests/*.test.mjs",
     "test:smoke": "node tests/smoke.mjs"

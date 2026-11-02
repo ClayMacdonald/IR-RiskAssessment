@@ -4,8 +4,8 @@
 // Wrangler 4 has no proxy mode, so it serves a directory and Vite proxies /api to it.
 import { spawn } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { API_PORT } from './dev-ports.mjs';
+import { LOCAL_D1_ID, PERSIST_DIR, WRANGLER, applyLocalMigrations } from './local-d1.mjs';
 
 const dir = process.argv[2] || 'public';
 // Pinned so local runs are repeatable. Keep it in step with the Pages project's compatibility date.
@@ -24,12 +24,23 @@ if (dir === 'dist' && !existsSync('dist/index.html')) {
 await import('./build-clients.mjs');
 
 // Wrangler's package exports do not expose bin/, so use the installed file directly.
-const wrangler = join(process.cwd(), 'node_modules', 'wrangler', 'bin', 'wrangler.js');
-if (!existsSync(wrangler)) {
+if (!existsSync(WRANGLER)) {
   console.error('Wrangler is not installed. Run npm install.');
   process.exit(1);
 }
-const args = [wrangler, 'pages', 'dev', dir, '--port', String(API_PORT), '--ip', '127.0.0.1', '--show-interactive-dev-session=false', `--compatibility-date=${COMPATIBILITY_DATE}`];
+
+// New migrations apply on every start, so the local database always matches the schema.
+applyLocalMigrations();
+
+const args = [
+  WRANGLER, 'pages', 'dev', dir,
+  '--port', String(API_PORT),
+  '--ip', '127.0.0.1',
+  '--show-interactive-dev-session=false',
+  `--compatibility-date=${COMPATIBILITY_DATE}`,
+  '--d1', `DB=${LOCAL_D1_ID}`,
+  '--persist-to', PERSIST_DIR,
+];
 const child = spawn(process.execPath, args, { stdio: 'inherit' });
 
 const stop = () => child.kill('SIGTERM');

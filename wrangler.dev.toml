@@ -1,0 +1,11 @@
+# Local development only. Used by scripts/dev-setup.mjs to apply migrations to the local D1
+# database that npm run dev and npm run pages bind as DB. Production bindings are set on the
+# Pages project in the Cloudflare dashboard (see README, "Deploy"), not here.
+name = "irp-assessment-local"
+compatibility_date = "2026-10-23"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "irp-assessment"
+database_id = "irp-assessment-local"
+migrations_dir = "migrations"

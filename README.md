@@ -21,7 +21,7 @@ Built from the Reg S-P Readiness Score app (`regsp.advisordefense.com`): same st
 
 ## Run locally
 
-Requires Node 22.
+Requires Node 22.13 or later (the unit tests use the built-in `node:sqlite`).
 
 ```
 npm install
@@ -69,8 +69,8 @@ The smoke test runs against the Pages runtime, so the access gate, the Functions
 
 `functions/_middleware.js` gates every request: HTML, JS, CSS, images and `/api/*`. Before sign-in, only the login page (`public/login/`), `POST /api/login`, `POST /api/logout` and the favicon are served. The JS bundle that holds the question bank is never served without a session. Pages get a redirect to `/login/`; everything else gets 401.
 
-- **Access codes.** Each client gets a random 20-character code (about 99 bits). The `ACCESS_CODES` secret maps the SHA-256 hash of each code to `{ "clientId", "firmName", "expires" }`. No plaintext codes exist in the repo, the secret or the logs. The firm name prefills from the code. A code works through the end of its `expires` date (UTC).
-- **Sessions.** A valid code sets `__Host-irp_session`: `HttpOnly; Secure; SameSite=Strict; Path=/`, 8 hours or until the code expires, whichever is first. It carries only the client ID and expiry, signed with HMAC-SHA256 (`SESSION_SECRET`). Every request rechecks the signature, the session expiry and the code's own expiry, so expiring or removing a code ends live sessions at the next request.
+- **Access codes.** Each client gets a random 20-character code (about 99 bits). The `clients` table in D1 (binding `DB`, schema in `migrations/`) holds the SHA-256 hash of each code with the client ID, firm name, expiry, a code version and a revoked date. No plaintext codes exist in the repo, the database or the logs. The firm name prefills from the code. A code works through the end of its `expires` date (UTC) unless the client is revoked.
+- **Sessions.** A valid code sets `__Host-irp_session`: `HttpOnly; Secure; SameSite=Strict; Path=/`, 8 hours or until the code expires, whichever is first. It carries only the client ID, code version and expiry, signed with HMAC-SHA256 (`SESSION_SECRET`). Every request rechecks the signature, the session expiry and the client's row in D1, so expiring, revoking or replacing a code ends live sessions at the next request.
 - **Brute force.** Turnstile on the sign-in form, one generic error for every failure, and a rate limiting rule (below).
 - **Caching.** Gated responses are `Cache-Control: private` so no shared cache can serve them to someone not signed in.
 
@@ -80,13 +80,13 @@ The smoke test runs against the Pages runtime, so the access gate, the Functions
 npm run add-client acme-wealth "Acme Wealth Partners" 2027-12-31
 ```
 
-It prints the code once and a JSON entry. Then:
+It prints the code once and the `wrangler d1 execute` command that adds the client to the production database (the SQL file holds only the code's hash). Then:
 
-1. In Cloudflare Pages, Settings, Variables and Secrets (Production), edit `ACCESS_CODES` and add the entry to the JSON object. Secrets cannot be read back, so keep the current JSON in AdvisorDefense's password manager and edit it there first.
-2. Redeploy (Deployments, latest, Retry deployment). Secrets take effect on the next deployment.
+1. Run that command. The code works as soon as it finishes; no redeploy.
+2. Delete the SQL file it names.
 3. Send the code to the client separately from the link, for example by phone or a separate email.
 
-To revoke a client, remove its entry (or set `expires` to a past date) and redeploy. To issue a new code for the same client, run the script again with the same `clientId` and replace the old entry.
+To issue a new code for the same client, run the script again with the same `clientId`. The old code and every session made with it stop working. To revoke a client: `npx wrangler d1 execute irp-assessment --remote --command "UPDATE clients SET revoked_at = datetime('now') WHERE client_id = 'acme-wealth'"`.
 
 ### Rate limiting rule (dashboard)
 
@@ -103,7 +103,7 @@ If you would rather use email one-time PINs than access codes:
 
 1. Zero Trust, Access, Applications, Add a self-hosted application for `irp.advisordefense.com`. Session duration 8 hours.
 2. Add one policy per client: Include, Emails ending in `@clientdomain.com`. Login method: One-time PIN.
-3. In `functions/_middleware.js`, replace the `currentClient()` check with a check of the `Cf-Access-Jwt-Assertion` header against your team's Access certificates, and map the email domain to a `clientId` (a small `ACCESS_DOMAINS` JSON secret works). Delete `public/login/`, `functions/api/login.js`, `functions/api/logout.js` and `scripts/add-client.mjs`.
+3. In `functions/_middleware.js`, replace the `currentClient()` check with a check of the `Cf-Access-Jwt-Assertion` header against your team's Access certificates, and map the email domain to a `clientId` (a small `ACCESS_DOMAINS` JSON secret works). Delete `public/login/`, `functions/api/login.js`, `functions/api/logout.js`, `scripts/add-client.mjs` and the `clients` table's code columns.
 4. Point the header's Sign out link at `/cdn-cgi/access/logout`.
 
 Access gives per-person identity and audit logs; codes are simpler for a firm to share with all its staff. Codes are the default because staff often do not have a client-domain email the firm wants to register.
@@ -164,11 +164,16 @@ Security model: POST only, allowed origins only, JSON only, 4 KB cap, a signed-i
 
 1. Workers and Pages, Create, Pages, Import an existing Git repository. Grant the Cloudflare GitHub app access to this repository only. Project name: `irp-assessment` (if you choose another, update `DEFAULT_ORIGINS` in `functions/_lib/http.js` or set `ALLOWED_ORIGINS`).
 2. Production branch `main`. Framework preset None. Build command `npm run build`. Output directory `dist`.
-3. Set every variable and secret in the table below, then deploy.
-4. Custom domains: add `irp.advisordefense.com`. The zone is in the same account, so DNS is created automatically.
-5. Settings, Builds, Branch control: Preview branch None. Only `main` is published.
-6. On GitHub, protect `main` with a ruleset: pull request required, no force pushes, no deletion.
-7. Create the rate limiting rule above and the Turnstile widget (hostnames `irp.advisordefense.com` and `irp-assessment.pages.dev`).
+3. Create the D1 database and its tables, and bind it to the project:
+   - `npx wrangler d1 create irp-assessment`
+   - `npx wrangler d1 migrations apply irp-assessment --remote` (from this repo; run it again whenever `migrations/` gains a file, before deploying)
+   - Pages project, Settings, Bindings, Add, D1 database: variable name `DB`, database `irp-assessment`.
+   - Moving from the old `ACCESS_CODES` secret: `npm run import-codes <saved-access-codes.json>`, run the command it prints, sign in with one existing code, then delete the secret.
+4. Set every variable and secret in the table below, then deploy.
+5. Custom domains: add `irp.advisordefense.com`. The zone is in the same account, so DNS is created automatically.
+6. Settings, Builds, Branch control: Preview branch None. Only `main` is published.
+7. On GitHub, protect `main` with a ruleset: pull request required, no force pushes, no deletion.
+8. Create the rate limiting rule above and the Turnstile widget (hostnames `irp.advisordefense.com` and `irp-assessment.pages.dev`).
 
 ### Zone settings that must keep excluding this site
 
@@ -184,7 +189,7 @@ After any zone or deploy change, sign in, open the browser console and run `fetc
 | Name | Type | Value |
 |---|---|---|
 | `NODE_VERSION` | Plaintext | `22` |
-| `ACCESS_CODES` | Secret | JSON: SHA-256 of each access code mapped to `{ "clientId", "firmName", "expires": "YYYY-MM-DD" }`. Built with `npm run add-client`. |
+| `DB` | D1 binding | The `irp-assessment` database (step 3). Sign-in fails closed without it. Clients are added with `npm run add-client`. |
 | `SESSION_SECRET` | Secret | At least 32 random bytes, for example `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
 | `VITE_TURNSTILE_SITE_KEY` | Plaintext | Turnstile site key (public). Read at build time by the app and at runtime by the login page. Without it, the completion notice and its disclosure are off. |
 | `TURNSTILE_SITE_KEY` | Plaintext, optional | Overrides the site key served to the login page. Normally leave unset. |
@@ -201,7 +206,7 @@ After any zone or deploy change, sign in, open the browser console and run `fetc
 - **Resend** (every 90 days, or at once if exposed): create a new key in Resend, update `RESEND_API_KEY`, redeploy, complete a test assessment, then revoke the old key.
 - **Turnstile secret**: rotate on the widget's page in the Turnstile dashboard, update `TURNSTILE_SECRET_KEY`, redeploy, sign in to confirm.
 - **SESSION_SECRET** (yearly, or at once if exposed): set a new random value and redeploy. Everyone currently signed in is signed out; nothing else is lost because answers are never stored.
-- **Access codes**: issue a new code with `npm run add-client` for each annual review, replace the client's entry, redeploy and send the new code. Remove codes for former clients. A code that may have been shared too widely is replaced the same way.
+- **Access codes**: issue a new code with `npm run add-client` (same `clientId`) for each annual review, run the command it prints and send the new code. The old code stops working at once. Revoke former clients. A code that may have been shared too widely is replaced the same way.
 
 ## Design and accessibility
 

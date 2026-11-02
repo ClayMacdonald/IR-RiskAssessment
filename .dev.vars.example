@@ -1,6 +1,6 @@
 # Local secrets for the Pages Functions (npm run dev, npm run pages).
 # Run "npm run dev:setup" once: it copies this file to .dev.vars (git-ignored), generates
-# SESSION_SECRET, writes ACCESS_CODES and prints your local access code.
+# SESSION_SECRET, sets up the local D1 database and prints your local access code.
 # Test values only. Never put production secrets here, and never set LOCAL_DEV in Cloudflare.
 
 # Local dev mode. Skips Turnstile verification and drops Secure from the session cookie so it works
@@ -9,10 +9,6 @@ LOCAL_DEV=1
 
 # Signs session cookies. dev:setup replaces the placeholder with 48 random bytes.
 SESSION_SECRET=replace-me
-
-# SHA-256 of each access code -> { clientId, firmName, expires }. dev:setup writes a local code
-# and the smoke-test code (smoke-test-code-2026-xyzw).
-ACCESS_CODES={}
 
 # Cloudflare's public Turnstile test keys (always pass). The login page loads the widget with the site key.
 TURNSTILE_SITE_KEY=1x00000000000000000000AA

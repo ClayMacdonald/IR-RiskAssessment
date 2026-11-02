@@ -10,5 +10,5 @@ export const VITE_URL = `http://localhost:${VITE_PORT}`;
 export const LOCAL_ORIGINS = [VITE_URL, `http://127.0.0.1:${VITE_PORT}`, API_URL, `http://localhost:${API_PORT}`];
 
 // Fixed, documented test-only access code used by tests/smoke.mjs. dev:setup adds its hash to the
-// local ACCESS_CODES. It works only with local secrets, never in production.
+// local D1 database. It works only with local secrets, never in production.
 export const SMOKE_CODE = 'smoke-test-code-2026-xyzw';

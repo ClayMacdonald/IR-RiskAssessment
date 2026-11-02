@@ -1,14 +1,16 @@
 // Access codes and signed sessions.
 //
-// ACCESS_CODES (Cloudflare secret) is JSON mapping the SHA-256 hex of each access code to
-// { "clientId": "...", "firmName": "...", "expires": "YYYY-MM-DD" }. No plaintext codes anywhere.
-// A code is valid through the end of its expires date (UTC).
+// Clients live in D1 (functions/_lib/db.js): the SHA-256 hex of each access code, firm name, expiry,
+// code version and revocation. No plaintext codes anywhere. A code is valid through the end of its
+// expires date (UTC) unless the client is revoked.
 //
-// The session cookie carries only { cid, exp } and an HMAC-SHA256 signature made with SESSION_SECRET.
+// The session cookie carries only { cid, cv, exp } and an HMAC-SHA256 signature made with SESSION_SECRET.
+// cv is the client's code version, so issuing a new code ends sessions made with the old one.
 // Production: __Host-irp_session; HttpOnly; Secure; SameSite=Strict; Path=/.
 // Local dev (isLocalDev, set by configuration only): irp_session without Secure, so browsers that
 // refuse Secure cookies over http://localhost (Safari) keep it. The __Host- prefix requires Secure.
 import { isLocalDev } from './http.js';
+import { clientById } from './db.js';
 
 export const COOKIE_NAME = '__Host-irp_session';
 export const DEV_COOKIE_NAME = 'irp_session';
@@ -62,22 +64,6 @@ export function generateCode(groups = 4, size = 5) {
   return Array.from({ length: groups }, (_, i) => chars.slice(i * size, (i + 1) * size).join('')).join('-');
 }
 
-const parsed = new Map();
-
-export function readAccessCodes(env = {}) {
-  const raw = env.ACCESS_CODES;
-  if (!raw) return null;
-  if (!parsed.has(raw)) {
-    try {
-      const value = JSON.parse(raw);
-      parsed.set(raw, value && typeof value === 'object' && !Array.isArray(value) ? value : null);
-    } catch {
-      parsed.set(raw, null);
-    }
-  }
-  return parsed.get(raw);
-}
-
 // End of the expires date, in epoch seconds. Invalid dates count as expired.
 export function codeExpiry(entry) {
   if (!entry || !/^\d{4}-\d{2}-\d{2}$/.test(entry.expires || '')) return 0;
@@ -85,24 +71,11 @@ export function codeExpiry(entry) {
   return Number.isFinite(t) ? Math.floor(t / 1000) : 0;
 }
 
-// Looks up a submitted code. Compares against every entry so timing does not reveal a match.
-export async function findCode(codes, code) {
-  const hash = await hashCode(code);
-  let match = null;
-  for (const [key, entry] of Object.entries(codes)) {
-    if (timingSafeEqual(key.toLowerCase(), hash) && !match) match = entry;
-  }
-  return match;
-}
-
-export function findClient(codes, clientId) {
-  for (const entry of Object.values(codes)) if (entry && entry.clientId === clientId) return entry;
-  return null;
-}
-
-// Active means the entry exists, has a clientId and its code has not expired.
+// Active means the client exists, is not revoked and its code has not expired.
 export function isActive(entry, now = Date.now()) {
-  return Boolean(entry && typeof entry.clientId === 'string' && entry.clientId && codeExpiry(entry) > now / 1000);
+  return Boolean(
+    entry && typeof entry.clientId === 'string' && entry.clientId && !entry.revokedAt && codeExpiry(entry) > now / 1000
+  );
 }
 
 async function hmacKey(secret) {
@@ -161,12 +134,12 @@ export function clearedCookie(env) {
   return `${cookieName(env)}=; ${cookieFlags(env)}; Max-Age=0`;
 }
 
-// Resolves the request's session to an active client, or null.
+// Resolves the request's session to an active client whose code has not been replaced, or null.
 export async function currentClient(request, env, now = Date.now()) {
-  const codes = readAccessCodes(env);
-  if (!codes || !env.SESSION_SECRET) return null;
+  if (!env.DB || !env.SESSION_SECRET) return null;
   const session = await verifySession(readCookie(request, cookieName(env)), env.SESSION_SECRET, now);
   if (!session) return null;
-  const entry = findClient(codes, session.cid);
-  return isActive(entry, now) ? { clientId: entry.clientId, firmName: entry.firmName || '' } : null;
+  const entry = await clientById(env.DB, session.cid);
+  if (!isActive(entry, now) || session.cv !== entry.codeVersion) return null;
+  return { clientId: entry.clientId, firmName: entry.firmName || '' };
 }

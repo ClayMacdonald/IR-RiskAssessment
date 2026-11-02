@@ -17,6 +17,8 @@ import {
   timingSafeEqual,
   verifySession,
 } from '../functions/_lib/session.js';
+import { upsertClientStatement } from '../functions/_lib/db.js';
+import { createD1 } from './d1.mjs';
 
 const ORIGIN = 'https://irp.advisordefense.com';
 const SECRET = 'test-session-secret-at-least-32-characters-long';
@@ -27,16 +29,21 @@ const consoleLog = console.log;
 console.log = () => {};
 test.after(() => (console.log = consoleLog));
 
-async function makeEnv(extra = {}) {
-  return {
-    SESSION_SECRET: SECRET,
-    TURNSTILE_SECRET_KEY: 'turnstile-secret',
-    ACCESS_CODES: JSON.stringify({
-      [await hashCode(CODE)]: { clientId: 'acme', firmName: 'Acme Wealth', expires: '2099-12-31' },
-      [await hashCode(OLD_CODE)]: { clientId: 'oldco', firmName: 'Old Co', expires: '2020-01-01' },
-    }),
-    ...extra,
-  };
+const DEFAULT_CLIENTS = [
+  { clientId: 'acme', firmName: 'Acme Wealth', code: CODE, expires: '2099-12-31' },
+  { clientId: 'oldco', firmName: 'Old Co', code: OLD_CODE, expires: '2020-01-01' },
+];
+
+async function seed(db, clients) {
+  for (const c of clients) {
+    await upsertClientStatement(db, { ...c, codeHash: await hashCode(c.code), actor: 'test' }).run();
+  }
+}
+
+async function makeEnv(extra = {}, clients = DEFAULT_CLIENTS) {
+  const DB = createD1();
+  await seed(DB, clients);
+  return { SESSION_SECRET: SECRET, TURNSTILE_SECRET_KEY: 'turnstile-secret', DB, ...extra };
 }
 
 const nextOk = () => {
@@ -121,7 +128,7 @@ test('dot segments cannot escape the login prefix', async () => {
 });
 
 test('bad signature is rejected', async () => {
-  const good = await signSession({ cid: 'acme', exp: nowSec() + 3600 }, SECRET);
+  const good = await signSession({ cid: 'acme', cv: 1, exp: nowSec() + 3600 }, SECRET);
   const forged = await signSession({ cid: 'acme', exp: nowSec() + 3600 }, 'some-other-secret');
   const tampered = good.replace(/^[^.]+/, btoa(JSON.stringify({ cid: 'oldco', exp: nowSec() + 3600 })).replace(/=+$/, ''));
   for (const cookie of [forged, tampered, 'garbage', `${good}.extra`, '']) {
@@ -141,23 +148,23 @@ test('expired session is rejected', async () => {
 });
 
 test('a live session for a client whose code has expired is rejected', async () => {
-  const cookie = await signSession({ cid: 'oldco', exp: nowSec() + 3600 }, SECRET);
+  const cookie = await signSession({ cid: 'oldco', cv: 1, exp: nowSec() + 3600 }, SECRET);
   const { next, calls } = nextOk();
   const res = await gate({ request: req('/assets/a.js', { cookie }), env: await makeEnv(), next });
   assert.equal(res.status, 401);
   assert.equal(calls.length, 0);
 });
 
-test('a session for a client removed from ACCESS_CODES is rejected', async () => {
-  const cookie = await signSession({ cid: 'removed', exp: nowSec() + 3600 }, SECRET);
+test('a session for a client not in the database is rejected', async () => {
+  const cookie = await signSession({ cid: 'removed', cv: 1, exp: nowSec() + 3600 }, SECRET);
   const { next } = nextOk();
   const res = await gate({ request: req('/assets/a.js', { cookie }), env: await makeEnv(), next });
   assert.equal(res.status, 401);
 });
 
 test('missing configuration fails closed', async () => {
-  const cookie = await signSession({ cid: 'acme', exp: nowSec() + 3600 }, SECRET);
-  for (const env of [{}, { ...(await makeEnv()), SESSION_SECRET: '' }, { ...(await makeEnv()), ACCESS_CODES: 'not json' }]) {
+  const cookie = await signSession({ cid: 'acme', cv: 1, exp: nowSec() + 3600 }, SECRET);
+  for (const env of [{}, { ...(await makeEnv()), SESSION_SECRET: '' }, { ...(await makeEnv()), DB: undefined }]) {
     const { next, calls } = nextOk();
     const res = await gate({ request: req('/assets/a.js', { cookie }), env, next });
     assert.equal(res.status, 401);
@@ -166,7 +173,7 @@ test('missing configuration fails closed', async () => {
 });
 
 test('valid session passes, exposes clientId and keeps gated content out of shared caches', async () => {
-  const cookie = await signSession({ cid: 'acme', exp: nowSec() + 3600 }, SECRET);
+  const cookie = await signSession({ cid: 'acme', cv: 1, exp: nowSec() + 3600 }, SECRET);
   const data = {};
   const { next, calls } = nextOk();
   const asset = await gate({ request: req('/assets/a.js', { cookie }), env: await makeEnv(), next, data });
@@ -179,6 +186,39 @@ test('valid session passes, exposes clientId and keeps gated content out of shar
 
   const page = await gate({ request: req('/', { cookie }), env: await makeEnv(), next, data: {} });
   assert.equal(page.headers.get('Cache-Control'), 'private, no-store');
+});
+
+test('revoking a client blocks sign-in and ends live sessions', async () => {
+  const env = await makeEnv();
+  const cookie = await signSession({ cid: 'acme', cv: 1, exp: nowSec() + 3600 }, SECRET);
+  await env.DB.prepare('UPDATE clients SET revoked_at = ? WHERE client_id = ?').bind(new Date().toISOString(), 'acme').run();
+  const { next, calls } = nextOk();
+  assert.equal((await gate({ request: req('/assets/a.js', { cookie }), env, next })).status, 401);
+  assert.equal(calls.length, 0);
+  const res = await handleLogin(loginReq({ code: CODE, turnstileToken: 'tok' }), env, turnstileMock().fetchImpl);
+  assert.equal(res.status, 401);
+  assert.deepEqual(await res.json(), { ok: false, error: 'sign_in_failed' });
+});
+
+test('issuing a new code ends sessions made with the old one', async () => {
+  const env = await makeEnv();
+  const old = await signSession({ cid: 'acme', cv: 1, exp: nowSec() + 3600 }, SECRET);
+  const NEW_CODE = 'NNNNN-PPPPP-QQQQQ-RRRRR';
+  await seed(env.DB, [{ clientId: 'acme', firmName: 'Acme Wealth', code: NEW_CODE, expires: '2099-12-31' }]);
+  const { next } = nextOk();
+  assert.equal((await gate({ request: req('/assets/a.js', { cookie: old }), env, next })).status, 401, 'old session');
+  const oldCode = await handleLogin(loginReq({ code: CODE, turnstileToken: 'tok' }), env, turnstileMock().fetchImpl);
+  assert.equal(oldCode.status, 401, 'old code');
+  const res = await handleLogin(loginReq({ code: NEW_CODE, turnstileToken: 'tok' }), env, turnstileMock().fetchImpl);
+  const token = res.headers.get('Set-Cookie').split(';')[0].split('=')[1];
+  assert.equal((await verifySession(token, SECRET)).cv, 2);
+  assert.equal((await gate({ request: req('/assets/a.js', { cookie: token }), env, next, data: {} })).status, 200);
+});
+
+test('a session without a code version is rejected', async () => {
+  const cookie = await signSession({ cid: 'acme', exp: nowSec() + 3600 }, SECRET);
+  const { next } = nextOk();
+  assert.equal((await gate({ request: req('/assets/a.js', { cookie }), env: await makeEnv(), next })).status, 401);
 });
 
 // ---------- Sessions and codes ----------
@@ -203,7 +243,7 @@ test('codes normalize, hash consistently and have about 99 bits of entropy', asy
 
 // ---------- Login ----------
 
-test('valid code signs in with a locked-down cookie carrying only clientId and expiry', async () => {
+test('valid code signs in with a locked-down cookie carrying only clientId, code version and expiry', async () => {
   const { fetchImpl, calls } = turnstileMock();
   const res = await handleLogin(loginReq({ code: 'abcde fghjk mnpqr stuvw', turnstileToken: 'tok' }), await makeEnv(), fetchImpl);
   assert.equal(res.status, 200);
@@ -213,8 +253,9 @@ test('valid code signs in with a locked-down cookie carrying only clientId and e
   assert.ok(cookie.startsWith(`${COOKIE_NAME}=`));
   const token = cookie.split(';')[0].split('=')[1];
   const payload = await verifySession(token, SECRET);
-  assert.deepEqual(Object.keys(payload).sort(), ['cid', 'exp']);
+  assert.deepEqual(Object.keys(payload).sort(), ['cid', 'cv', 'exp']);
   assert.equal(payload.cid, 'acme');
+  assert.equal(payload.cv, 1);
 });
 
 test('full flow: the login cookie opens the gate', async () => {
@@ -240,9 +281,7 @@ test('unknown and expired codes get the same generic response', async () => {
 });
 
 test('a session never outlives its code', async () => {
-  const env = await makeEnv({
-    ACCESS_CODES: JSON.stringify({ [await hashCode(CODE)]: { clientId: 'acme', firmName: 'Acme', expires: '2030-01-01' } }),
-  });
+  const env = await makeEnv({}, [{ clientId: 'acme', firmName: 'Acme', code: CODE, expires: '2030-01-01' }]);
   const now = Date.parse('2030-01-01T22:00:00Z');
   const res = await handleLogin(loginReq({ code: CODE, turnstileToken: 'tok' }), env, turnstileMock().fetchImpl, now);
   assert.equal(res.status, 200);
@@ -326,7 +365,7 @@ test('LOCAL_DEV in production configuration changes nothing', async () => {
 });
 
 test('production never accepts the dev cookie name', async () => {
-  const token = await signSession({ cid: 'acme', exp: nowSec() + 3600 }, SECRET);
+  const token = await signSession({ cid: 'acme', cv: 1, exp: nowSec() + 3600 }, SECRET);
   const request = new Request(`${ORIGIN}/assets/a.js`, { headers: { Cookie: `${DEV_COOKIE_NAME}=${token}` } });
   const { next, calls } = nextOk();
   assert.equal((await gate({ request, env: await makeEnv({ LOCAL_DEV: '1' }), next })).status, 401);
@@ -353,4 +392,20 @@ test('client endpoint returns only the signed-in client override', async () => {
   const proto = await (await clientResponse({ clientId: '__proto__' }, overrides)).json();
   assert.equal(proto.override, null);
   assert.equal((await clientResponse({}, overrides)).status, 401);
+});
+
+// ---------- SQL files for wrangler d1 execute ----------
+
+test('client SQL quotes values, validates input and matches the Functions statement', async () => {
+  const { upsertClientSql } = await import('../scripts/sql.mjs');
+  const client = { clientId: 'oneil-co', firmName: "O'Neil & Co'); DROP TABLE clients; --", expires: '2099-12-31', codeHash: await hashCode(CODE), actor: 'test' };
+  const sql = upsertClientSql(client);
+  const db = createD1();
+  db.raw.exec(sql);
+  const row = await db.prepare('SELECT firm_name, code_hash FROM clients WHERE client_id = ?').bind('oneil-co').first();
+  assert.equal(row.firm_name, client.firmName);
+  assert.equal(row.code_hash, client.codeHash);
+  assert.throws(() => upsertClientSql({ ...client, clientId: "x'; --" }));
+  assert.throws(() => upsertClientSql({ ...client, codeHash: 'not-a-hash' }));
+  assert.throws(() => upsertClientSql({ ...client, expires: '2099-12-31; --' }));
 });
