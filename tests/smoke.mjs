@@ -13,7 +13,12 @@
 //   B  Chief Compliance Officer, phone, mouse, all correct, completion notification fails (502)
 //   C  Operations, 320px, mouse, all worst answers
 //   D  Secondary Lead, desktop, keyboard only, forced colors and reduced motion
+//   E  Admin flow: create (or re-key) a client in /admin/, complete the assessment with its code
+//      through the real completion Function, then find the record, download the admin PDF and
+//      compare it with the person's, preview as the client, and axe every admin screen.
 // Plus unauthenticated checks: bundle, API and pages blocked before sign-in; generic error for a bad code.
+// Locally the admin side uses ADMIN_DEV_EMAIL (local dev mode). The Access JWT checks, and admin
+// routes refusing client sessions, are covered by tests/admin.test.mjs.
 import { chromium } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
 import { readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -63,7 +68,7 @@ const PLANS = {
   twoWrong: (q, i) => (q.type === 'readiness' ? 1 : i < 2 ? wrongIndex(q) : correctIndex(q)),
 };
 
-async function run(name, { role, width, keyboard = false, plan, completionStatus = 200, forcedColors, reducedMotion, zoomCheck = false, again = false }) {
+async function run(name, { role, width, keyboard = false, plan, completionStatus = 200, forcedColors, reducedMotion, zoomCheck = false, again = false, code = CODE, firm = FIRM, realCompletion = false }) {
   const browser = await chromium.launch();
   const context = await browser.newContext({
     viewport: { width, height: 900 },
@@ -90,6 +95,8 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
     }
     if (url === `${BASE}/api/completion`) {
       completions.push(route.request().postDataJSON());
+      // The admin run sends the completion to the real Function so the record is stored.
+      if (realCompletion) return route.continue();
       return route.fulfill({ status: completionStatus, contentType: 'application/json', body: JSON.stringify({ ok: completionStatus === 200 }) });
     }
     if (!url.startsWith(BASE)) {
@@ -142,7 +149,7 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   await page.waitForSelector('#code');
   check(page.url() === `${BASE}/login/`, `${name}: unauthenticated visit lands on the sign-in page`);
   await axe('login');
-  await type('#code', CODE);
+  await type('#code', code);
   if (keyboard) await page.keyboard.press('Enter');
   else await page.click('[data-submit]');
   await page.waitForURL(`${BASE}/`);
@@ -152,7 +159,7 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   // ---------- intro ----------
   await page.waitForSelector('[data-start]');
   check((await page.textContent('h1')).trim() === 'IRP and Reg S-P Readiness', `${name}: intro H1`);
-  check((await page.textContent('.hero')).includes(`Prepared for ${FIRM}`), `${name}: firm name prefilled from the access code`);
+  check((await page.textContent('.hero')).includes(`Prepared for ${firm}`), `${name}: firm name prefilled from the access code`);
   await shot('1-intro');
   await axe('intro');
   await activate('[data-start]');
@@ -160,7 +167,7 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   // ---------- details ----------
   await page.waitForSelector('#name');
   check(await page.isDisabled('[data-next]'), `${name}: Continue disabled until complete`);
-  check((await page.inputValue('#firmName')) === FIRM, `${name}: firm field prefilled`);
+  check((await page.inputValue('#firmName')) === firm, `${name}: firm field prefilled`);
   await type('#name', 'Jordan Example');
   await type('#email', 'not-an-email');
   if (keyboard) await page.keyboard.press('Tab');
@@ -284,7 +291,7 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   const squash = (t) => t.replace(/\s+/g, '');
   const flat = squash(body);
   const has = (t) => flat.includes(squash(t));
-  for (const s of ['IRP AND REG S-P READINESS REPORT', FIRM, 'Jordan Example', role, config.irpVersion, 'How the IRP meets Reg S-P', `Confidential. Prepared for ${FIRM}.`, 'Page 1 of']) {
+  for (const s of ['IRP AND REG S-P READINESS REPORT', firm, 'Jordan Example', role, config.irpVersion, 'How the IRP meets Reg S-P', `Confidential. Prepared for ${firm}.`, 'Page 1 of', `AdvisorDefense keeps these answers for ${config.retentionYears} years`]) {
     check(has(s), `${name}: PDF contains "${s}"`);
   }
   check(has(`IRP KNOWLEDGE ${expected.knowledge.score} / 100 ${expected.knowledge.band.label}`), `${name}: PDF Knowledge score and band`);
@@ -306,6 +313,120 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   const inlineStyles = await page.evaluate(() => document.querySelectorAll('style:not([data-vite-dev-id])').length);
   check(inlineStyles === 0, `${name}: no <style> elements`);
   await browser.close();
+  return { pdfText: body, expected };
+}
+
+// ---------- admin ----------
+const ADMIN_CLIENT = { clientId: 'smoke-admin', firmName: 'Smoke Admin Advisors' };
+
+async function adminFlow() {
+  const name = 'E-admin';
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, acceptDownloads: true });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('dialog', (d) => d.accept());
+  const axe = async (label) => {
+    await page.waitForTimeout(250);
+    const r = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    const v = r.violations.map((x) => `${x.id} (${x.nodes.length})`);
+    check(v.length === 0, `${name}: axe clean on ${label}${v.length ? `: ${v.join(', ')}` : ''}`);
+  };
+  const readCode = async () => (await page.textContent('[data-code]')).trim();
+  const clientUrl = `${BASE}/admin/#/clients/${ADMIN_CLIENT.clientId}`;
+
+  // ---------- clients: create, or issue a new code if an earlier run made it ----------
+  await page.goto(`${BASE}/admin/`);
+  await page.waitForSelector('[data-list] .admin-table, [data-list] .findings-empty');
+  check((await page.request.get(`${BASE}/admin/`)).headers()['content-security-policy'] === CSP, `${name}: admin page has the production CSP`);
+  await axe('clients');
+  let code;
+  if (await page.locator(`.admin-table a[href="#/clients/${ADMIN_CLIENT.clientId}"]`).count()) {
+    await page.goto(clientUrl);
+    await page.waitForSelector('[data-new-code]');
+    if (await page.locator('[data-delete-all]').count()) {
+      await page.click('[data-delete-all]');
+      await page.waitForSelector('text=Deleted');
+    }
+    await page.click('[data-new-code]');
+    await page.waitForSelector('.code-panel');
+    code = await readCode();
+  } else {
+    await page.fill('#firmName', ADMIN_CLIENT.firmName);
+    check((await page.inputValue('#clientId')) === 'smoke-admin-advisors', `${name}: client ID suggested from the firm name`);
+    await page.fill('#clientId', ADMIN_CLIENT.clientId);
+    await page.click('[data-create]');
+    await page.waitForSelector('.code-panel');
+    code = await readCode();
+    await axe('client created');
+  }
+  check(/^[A-HJKMNP-Z2-9]{5}(-[A-HJKMNP-Z2-9]{5}){3}$/.test(code), `${name}: access code shown once`);
+
+  // ---------- the person completes it with that code ----------
+  const person = await run('E-admin-person', { role: 'Owner or Principal', width: 1280, plan: PLANS.mixed, code, firm: ADMIN_CLIENT.firmName, realCompletion: true });
+
+  // ---------- the record ----------
+  // Reload: going to the same hash URL would not fetch the records again.
+  await page.goto(clientUrl);
+  await page.reload();
+  const row = page.locator('tr[data-submission]', { hasText: 'Jordan Example' });
+  await row.waitFor();
+  check((await page.locator('tr[data-submission]').count()) === 1, `${name}: exactly one record stored`);
+  const rowText = await row.textContent();
+  check(rowText.includes('jordan@smoketest.example') && rowText.includes('Owner or Principal'), `${name}: record shows the person and role`);
+  check(
+    rowText.includes(String(person.expected.knowledge.score)) && rowText.includes(String(person.expected.readiness.score)),
+    `${name}: record shows the server's scores`
+  );
+  await axe('client detail');
+
+  const [download] = await Promise.all([page.waitForEvent('download'), row.locator('[data-download]').click()]);
+  const file = join(OUT, `E-admin-${download.suggestedFilename()}`);
+  await download.saveAs(file);
+  const adminText = (await new PDFParse({ data: readFileSync(file) }).getText()).text.replace(/^-- \d+ of \d+ --$/gm, '');
+  writeFileSync(`${file}.txt`, adminText);
+  // Same report except the time: the person's copy is dated when they finished, the admin copy when
+  // the record was saved.
+  const undated = (t) => t.replace(/[A-Z][a-z]+ \d{1,2}, \d{4}( at)? \d{1,2}:\d{2}\s?[AP]M/g, '<when>').replace(/\s+/g, '');
+  check(undated(adminText) === undated(person.pdfText), `${name}: admin PDF matches the person's PDF apart from the time`);
+
+  // ---------- the record page the email links to ----------
+  const id = await row.getAttribute('data-submission');
+  await page.goto(`${BASE}/admin/#/submissions/${id}`);
+  await page.waitForSelector('.admin-score');
+  check((await page.textContent('h1')).includes(`Jordan Example, ${ADMIN_CLIENT.firmName}`), `${name}: record page title`);
+  await axe('record page');
+
+  // ---------- preview ----------
+  await page.goto(clientUrl);
+  await page.waitForSelector('[data-preview]');
+  const [tab] = await Promise.all([context.waitForEvent('page'), page.click('[data-preview]')]);
+  await tab.waitForSelector('.pv-banner');
+  check((await tab.textContent('.pv-banner')).includes('Nothing is saved or sent'), `${name}: preview banner shows`);
+  const answers = Object.fromEntries(bank.questions.map((q) => [q.id, 0]));
+  const pv = await tab.request.post(`${BASE}/api/completion`, {
+    data: { ...completionPayload({ name: 'Preview Person', email: 'p@advisordefense.com', role: 'CSIRT Lead' }, bank, answers), turnstileToken: 't' },
+    headers: { Origin: BASE },
+  });
+  check(pv.status() === 200 && (await pv.json()).preview === true, `${name}: preview completion is skipped by the server`);
+  await tab.close();
+  await page.reload();
+  await page.waitForSelector('tr[data-submission]');
+  check((await page.locator('tr[data-submission]').count()) === 1, `${name}: preview stored no record`);
+
+  // ---------- activity log ----------
+  await page.goto(`${BASE}/admin/#/audit`);
+  await page.waitForSelector('[data-log] .admin-table');
+  const log = await page.textContent('[data-log]');
+  for (const action of ['Downloaded a PDF report', 'Previewed as the client', 'Viewed a record']) {
+    check(log.includes(action), `${name}: activity log has "${action}"`);
+  }
+  await axe('activity log');
+
+  check(errors.length === 0, `${name}: no console errors ${errors.join(' | ')}`);
+  await browser.close();
 }
 
 // ---------- unauthenticated ----------
@@ -325,7 +446,7 @@ async function unauthenticated() {
 
   const asset = await req.get(`${BASE}${bundle}`, { maxRedirects: 0 });
   check(asset.status() === 401, `unauth: bundle with the question bank blocked (${asset.status()})`);
-  check(!(await asset.text()).includes('roles_report_to_csirt'), 'unauth: no question content in the response');
+  check(!(await asset.text()).includes('notice_deadline'), 'unauth: no question content in the response');
   if (css) check((await req.get(`${BASE}${css}`, { maxRedirects: 0 })).status() === 401, 'unauth: app stylesheet blocked');
   const page = await req.get(`${BASE}/`, { maxRedirects: 0, headers: { Accept: 'text/html' } });
   check(page.status() === 302 && page.headers().location === '/login/', 'unauth: app page redirects to /login/');
@@ -356,6 +477,7 @@ await run('A-csirt-desktop-keyboard', { role: 'CSIRT Lead', width: 1280, keyboar
 await run('B-cco-phone', { role: 'Chief Compliance Officer', width: 390, plan: PLANS.best, completionStatus: 502 });
 await run('C-operations-320', { role: 'Operations', width: 320, plan: PLANS.worst });
 await run('D-secondary-desktop-keyboard-forced', { role: 'Secondary Lead', width: 1280, keyboard: true, plan: PLANS.twoWrong, forcedColors: true, reducedMotion: true });
+await adminFlow();
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);

@@ -462,7 +462,7 @@ export async function generateReport(state, results) {
   });
   y += 12;
 
-  const record = `This report records the answers ${details.name} (${details.role}) gave on ${formatWhen(when)}, against ${bank.irpVersion}. It was generated on the person's device. AdvisorDefense does not store the answers.`;
+  const record = `This report records the answers ${details.name} (${details.role}) gave on ${formatWhen(when)}, against ${bank.irpVersion}. AdvisorDefense keeps these answers for ${config.retentionYears} years to review results with the firm.`;
   const recordH = height(record, 9, CONTENT_W - 28, 13) + 44;
   const contactH = 58;
   ensure(recordH + contactH + 60);

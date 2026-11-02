@@ -11,6 +11,8 @@ It is for CSIRT members and firm leadership only: 15 questions (8 IRP knowledge,
 
 Answers stay in the browser, in memory only, until the person downloads their report. Then the name, work email, role and answers are saved for AdvisorDefense for six years, scored on the server, and AdvisorDefense gets an email with a dashboard link (see [Completed assessments](#completed-assessments)). The PDF is built on the device. No analytics, trackers or third-party fonts. The only third-party request is Cloudflare Turnstile.
 
+AdvisorDefense staff manage clients and see results in the admin dashboard at `/admin/`, behind Cloudflare Access (see [Admin dashboard](#admin-dashboard)).
+
 Built from the Reg S-P Readiness Score app (`regsp.advisordefense.com`): same stack, design system, PDF engine, headers and copy rules. See `docs/plan.md` for the build plan and `docs/design-spec.md` for the design system.
 
 ## Before launch
@@ -29,11 +31,11 @@ npm run dev:setup      # once: creates .dev.vars and prints your local access co
 npm run dev            # starts the API (port 8799) and Vite (port 5173) together
 ```
 
-Open http://localhost:5173 and sign in with the code `dev:setup` printed. Lost it? Run `npm run dev:setup` again for a new one (your other settings are kept).
+Open http://localhost:5173 and sign in with the code `dev:setup` printed. Lost it? Run `npm run dev:setup` again for a new one (your other settings and local data are kept). The admin dashboard is at http://localhost:5173/admin/, signed in as `ADMIN_DEV_EMAIL`.
 
 `npm run dev` runs two labeled processes in one terminal:
 
-- `[api]`: the Pages Functions (sign-in, session, `/api/client`, `/api/completion`) in Wrangler on 127.0.0.1:8799, with secrets from `.dev.vars`.
+- `[api]`: the Pages Functions (sign-in, session, `/api/client`, `/api/completion`, `/api/admin/*`) in Wrangler on 127.0.0.1:8799, with secrets from `.dev.vars` and a local D1 database in `.wrangler/state` (git-ignored). New migrations apply on every start.
 - `[vite]`: the app with live reload on localhost:5173. Vite forwards `/api/*` to the API and starts only once the API answers. If either process stops with an error, both stop.
 
 For debugging, run them separately with `npm run dev:api` and `npm run dev:vite`. If Vite runs without the API, `/api/*` returns 502 with `API server not running, use npm run dev`, and the terminal shows one line instead of a stack trace.
@@ -42,6 +44,7 @@ What is different locally (all set in `.dev.vars` by `dev:setup`; production doe
 
 - `LOCAL_DEV=1` skips Turnstile verification and names the session cookie `irp_session` without `Secure`, so it works over plain http (Safari rejects Secure cookies on http://localhost). It is ignored unless every `ALLOWED_ORIGINS` entry is http localhost or 127.0.0.1, so it can never take effect in production.
 - `RESEND_API_KEY=re_local_dev_dummy` means completion emails are never sent. The record is still saved to the local database, and the API logs `stored_dry_run` (no personal data) and returns 200.
+- `ADMIN_DEV_EMAIL` stands in for the Cloudflare Access JWT, so the admin side works on localhost. Like `LOCAL_DEV`, it is ignored unless every allowed origin is local.
 - `.env.development` holds Cloudflare's public Turnstile test site key, so the report screen's disclosure shows in dev.
 - Vite serves files without the access gate. Only the Pages runtime enforces it. To check the real gate and CSP, use `npm run build` and `npm run pages` (the production build plus Functions on http://127.0.0.1:8799).
 
@@ -53,7 +56,7 @@ Ports live in `scripts/dev-ports.mjs`. Set `DEV_API_PORT` to move the API, then 
 npm run test:unit
 ```
 
-Node's test runner, no network. Covers the middleware and sessions (including local dev mode), sign-in, the completion Function (Turnstile and Resend mocked, plus the dry run), the content schema and copy lint, scoring for both question types, roles, client overrides and the login page's copies of the design system.
+Node's test runner, no network. D1 is an in-memory `node:sqlite` database built from the real migrations (`tests/d1.mjs`). Covers the middleware and sessions (including local dev mode, revocation and code replacement), sign-in, the completion Function (server scoring, storage, Turnstile and Resend mocked, plus the dry run), the admin side (Access JWT verification, client management, records, downloads, deletes, preview, retention and the audit log), the content schema and copy lint, scoring for both question types, roles, client overrides and the login page's copies of the design system.
 
 ```
 npx playwright install chromium                                  # first time only
@@ -63,7 +66,7 @@ npm run pages                                                    # one terminal
 npm run test:smoke                                               # another
 ```
 
-The smoke test runs against the Pages runtime, so the access gate, the Functions and the CSP in `public/_headers` all apply. It signs in as four different CSIRT roles at 320px, phone and desktop widths (two runs keyboard only, one with forced colors and reduced motion), runs axe on every screen state, checks scores, the crosswalk and the PDF text, checks that exactly one completion notice is sent with only the disclosed fields, that the report still downloads when the notice fails, and that the bundle and APIs are blocked before sign-in. It uses the local secrets, so it runs in local dev mode; the production cookie and Turnstile paths are covered by the unit tests. Screenshots, PDFs and PDF text go to `smoke-output/` (git-ignored). The test serves a stand-in for the Turnstile script and answers `/api/completion` itself.
+The smoke test runs against the Pages runtime, so the access gate, the Functions and the CSP in `public/_headers` all apply. It signs in as four different CSIRT roles at 320px, phone and desktop widths (two runs keyboard only, one with forced colors and reduced motion), runs axe on every screen state, checks scores, the crosswalk and the PDF text, checks that exactly one completion is sent with only the disclosed fields, that the report still downloads when the completion fails, and that the bundle and APIs are blocked before sign-in. A fifth run covers the admin side: it creates (or re-keys) the `smoke-admin` client in the dashboard, completes the assessment with that code through the real completion Function, finds the record, downloads the admin PDF and checks it matches the person's PDF apart from the time, previews as the client, and runs axe on every admin screen. It uses the local secrets, so it runs in local dev mode; the production cookie and Turnstile paths are covered by the unit tests. Screenshots, PDFs and PDF text go to `smoke-output/` (git-ignored). The test serves a stand-in for the Turnstile script and answers `/api/completion` itself, except in the admin run.
 
 ## Access control
 
@@ -154,6 +157,18 @@ To refresh the IRP text after the template changes: put the new .docx in `refere
 
 The login page cannot load the gated bundle, so `public/login/` carries copies of `brand.css`, `base.css`, `components.css`, the fonts and the logo. `npm run build` refreshes them (`npm run sync:login` does it alone), and a unit test fails if they drift.
 
+## Admin dashboard
+
+For AdvisorDefense staff, at `https://irp.advisordefense.com/admin/`. Sign-in is Cloudflare Access with an email one-time PIN (setup under [Deploy](#admin-access-cloudflare-access)). It is a separate build (`admin/index.html`, `src/admin/`), so its files sit behind Access and never behind a client code.
+
+- **Clients.** Every client with code status (Active, Expired, Revoked), expiry and completion counts. Add a client: the code is shown once, only its hash is stored. On a client's page: issue a new code (the old code and its sessions stop at once, and a revoked client is restored), change the expiry, or revoke access.
+- **Records.** Each client's completed assessments, newest first. Download any person's PDF: it is rebuilt on the admin's device with the same report code from the saved answers and the bank as they saw it, so questions, scores and crosswalk match their copy. Two differences: the firm name is the registered one, and the date is when the record was saved. Delete one record or all of a client's records. The completion email links straight to a record page.
+- **Preview as this client.** Opens the assessment in a new tab with that client's questions for one hour, with a preview banner. Nothing is saved or sent: the app skips the completion and the server refuses it for a preview session. It replaces any client sign-in in that browser.
+- **Retention.** Records and audit rows older than `retentionYears` (6) are deleted when the dashboard opens; Pages Functions have no scheduled jobs. A purge that deletes anything is logged. [VERIFY] with compliance counsel that six years fits AdvisorDefense's own record-keeping obligations and client agreements.
+- **Activity log.** Every view, download, change, preview, delete and purge, with the admin's email and record IDs (no client personal data).
+
+The `npm run add-client` and `npm run import-codes` scripts still work for scripted changes.
+
 ## Completed assessments
 
 When someone clicks Download my report, the browser posts their name, work email, role and answers (question ID to option index) to `/api/completion`. The Function rebuilds that client's question bank, scores the answers itself and saves the record in D1 (`submissions`: the answers, the server's scores and section scores, and a snapshot of the bank as shown). Scores sent by a browser are ignored. Then it emails AdvisorDefense through Resend: firm, role, both scores and a link to the record in the admin dashboard. The email carries no name, email address or answers. The client comes from the session cookie, never from the request. The report screen names every field and the retention period before download. One save per visit; the PDF never waits for it, and downloads even if it fails. If the email fails, the record is still saved.
@@ -178,6 +193,8 @@ Security model: POST only, allowed origins only, JSON only, 4 KB cap, a signed-i
 8. Create the rate limiting rule above and the Turnstile widget (hostnames `irp.advisordefense.com` and `irp-assessment.pages.dev`).
 
 ### Admin access (Cloudflare Access)
+
+Needed before the admin side opens: the Zero Trust team domain, the Access application's AUD tag, and which AdvisorDefense emails get admin (the default is anyone at @advisordefense.com; the policy can name people instead).
 
 The admin side (`/admin/` and `/api/admin/*`) is for AdvisorDefense staff only.
 
