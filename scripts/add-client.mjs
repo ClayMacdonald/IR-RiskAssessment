@@ -4,30 +4,21 @@
 // Prints a new access code once, and writes a SQL file that adds the client to the production D1
 // database. Rerunning for an existing clientId issues a new code and ends sessions made with the old one.
 // The code itself is never stored. Send it to the client by a separate channel from the URL.
-// scripts/dev-setup.mjs imports createClientEntry() to make the local test code.
+// Validation and code creation live in functions/_lib/session.js, shared with the dashboard.
 import { writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { generateCode, hashCode } from '../functions/_lib/session.js';
+import { clientProblem, createClientEntry } from '../functions/_lib/session.js';
 import { upsertClientSql } from './sql.mjs';
 
-export function checkClientArgs(clientId, firmName, expires) {
-  if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(clientId || '') || !firmName || !/^\d{4}-\d{2}-\d{2}$/.test(expires || '')) {
-    return 'Usage: npm run add-client <clientId> "<Firm Name>" <YYYY-MM-DD>\nclientId: lowercase letters, digits and dashes, for example "acme-wealth".';
-  }
-  if (Number.isNaN(Date.parse(`${expires}T00:00:00Z`)) || Date.parse(`${expires}T23:59:59Z`) < Date.now()) {
-    return 'expires must be a valid date that has not passed.';
-  }
-  return null;
-}
+export { createClientEntry };
 
-// Returns { code, client }, where client is { clientId, firmName, expires, codeHash }.
-export async function createClientEntry(clientId, firmName, expires) {
-  const problem = checkClientArgs(clientId, firmName, expires);
-  if (problem) throw new Error(problem);
-  const code = generateCode();
-  return { code, client: { clientId, firmName, expires, codeHash: await hashCode(code) } };
+const USAGE = 'Usage: npm run add-client <clientId> "<Firm Name>" <YYYY-MM-DD>, for example acme-wealth "Acme Wealth Partners" 2027-12-31';
+
+export function checkClientArgs(clientId, firmName, expires) {
+  const problem = clientProblem({ clientId, firmName, expires });
+  return problem && `${problem}\n${USAGE}`;
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
@@ -41,7 +32,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const file = join(tmpdir(), `irp-client-${clientId}.sql`);
   writeFileSync(file, `${upsertClientSql({ ...client, actor: 'add-client' })}\n`);
   console.log(`
-Access code for ${firmName} (shown once, not stored):
+Access code for ${client.firmName} (shown once, not stored):
 
   ${code}
 

@@ -143,3 +143,24 @@ export async function currentClient(request, env, now = Date.now()) {
   if (!isActive(entry, now) || session.cv !== entry.codeVersion) return null;
   return { clientId: entry.clientId, firmName: entry.firmName || '' };
 }
+
+// Shared by the admin dashboard and scripts/add-client.mjs. Returns a short reason, or null if valid.
+export const CLIENT_ID_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
+export const FIRM_NAME_MAX = 150;
+
+export function clientProblem({ clientId, firmName, expires }, now = Date.now()) {
+  if (!CLIENT_ID_RE.test(clientId || '')) return 'Client ID: 2 to 63 lowercase letters, digits and dashes, starting with a letter or digit.';
+  if (typeof firmName !== 'string' || !firmName.trim() || firmName.length > FIRM_NAME_MAX) return `Firm name: 1 to ${FIRM_NAME_MAX} characters.`;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(expires || '') || Number.isNaN(Date.parse(`${expires}T00:00:00Z`))) return 'Expiry: a valid date (YYYY-MM-DD).';
+  if (Date.parse(`${expires}T23:59:59Z`) < now) return 'Expiry: a date that has not passed.';
+  return null;
+}
+
+// A new code for a client. Returns { code, client }, where client holds only the code's hash.
+// The code is shown once and never stored.
+export async function createClientEntry(clientId, firmName, expires) {
+  const problem = clientProblem({ clientId, firmName, expires });
+  if (problem) throw new Error(problem);
+  const code = generateCode();
+  return { code, client: { clientId, firmName: firmName.trim(), expires, codeHash: await hashCode(code) } };
+}

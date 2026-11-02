@@ -1,0 +1,259 @@
+/* Admin dashboard. Builds on brand.css, base.css and components.css; tokens only, no new colors. */
+
+.admin-page {
+  padding-top: 32px;
+  padding-bottom: 64px;
+}
+
+.admin-page .card {
+  margin-top: 24px;
+}
+
+.admin-page .card-title {
+  margin-bottom: 16px;
+}
+
+.admin-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.admin-email {
+  font-size: 14px;
+  color: var(--ad-text-muted);
+}
+
+.admin-back {
+  margin: 0 0 16px;
+  font-size: 14px;
+}
+
+.admin-back a,
+.admin-next a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.admin-loading,
+.admin-muted {
+  color: var(--ad-text-muted);
+}
+
+.admin-sub {
+  display: block;
+  font-weight: 400;
+  font-size: 13px;
+  color: var(--ad-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.admin-ok {
+  margin: 0 0 16px;
+  color: var(--ad-success-700);
+  font-weight: 600;
+}
+
+.admin-error {
+  margin: 0 0 16px;
+}
+
+.admin-form .card-footer {
+  margin-top: 8px;
+}
+
+/* Tables: same look as the crosswalk. */
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 22px;
+}
+
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 12px 12px 12px 0;
+  border-top: 1px solid var(--ad-border-subtle);
+}
+
+.admin-table thead th {
+  border-top: none;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+  color: var(--ad-navy-700);
+}
+
+.admin-table tbody th {
+  font-weight: 700;
+  color: var(--ad-navy-800);
+}
+
+.admin-table .num-col {
+  text-align: right;
+}
+
+.admin-table code,
+.admin-facts code {
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.admin-table tr.is-target {
+  background: var(--ad-blue-50);
+}
+
+/* Key facts under a title. */
+.admin-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 32px;
+  margin: 12px 0 0;
+}
+
+.admin-facts div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-facts dt {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ad-navy-700);
+}
+
+.admin-facts dd {
+  margin: 0;
+}
+
+/* Code actions. */
+.admin-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.admin-action h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+  line-height: 24px;
+  color: var(--ad-navy-800);
+}
+
+.admin-action p {
+  margin: 0 0 12px;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--ad-text-body);
+}
+
+.admin-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-inline input {
+  height: 48px;
+  padding: 0 14px;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--ad-ink);
+  background-color: var(--ad-surface);
+  border: 1px solid var(--ad-border-strong);
+  border-radius: var(--ad-radius-md);
+}
+
+.admin-inline input:focus {
+  outline: 2px solid var(--ad-focus);
+  outline-offset: 2px;
+}
+
+.btn-danger,
+.btn-danger:hover {
+  color: var(--ad-danger-700);
+}
+
+/* The one-time access code. */
+.code-panel {
+  margin: 16px 0;
+}
+
+.code-panel:focus {
+  outline: 2px solid var(--ad-focus);
+  outline-offset: 2px;
+}
+
+.code-value {
+  margin: 12px 0;
+  font-size: 22px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ad-ink);
+  user-select: all;
+  overflow-wrap: anywhere;
+}
+
+.copy-status {
+  font-size: 14px;
+  color: var(--ad-text-body);
+}
+
+@media (max-width: 899px) {
+  .admin-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phones: each table row becomes a small labeled block. */
+@media (max-width: 719px) {
+  .admin-email {
+    display: none;
+  }
+
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+
+  .admin-table tr,
+  .admin-table th,
+  .admin-table td {
+    display: block;
+  }
+
+  .admin-table tbody tr {
+    padding: 12px 0;
+    border-top: 1px solid var(--ad-border-subtle);
+  }
+
+  .admin-table tbody th,
+  .admin-table td {
+    border-top: none;
+    padding: 2px 0;
+  }
+
+  .admin-table .num-col {
+    text-align: left;
+  }
+
+  .admin-table td::before {
+    content: attr(data-label) ': ';
+    font-weight: 700;
+    color: var(--ad-navy-700);
+  }
+}
+
+@media (forced-colors: active) {
+  .admin-table tr.is-target {
+    outline: 2px solid CanvasText;
+  }
+}

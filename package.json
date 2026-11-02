@@ -11,7 +11,7 @@
     "dev:api": "node scripts/dev-api.mjs",
     "dev:vite": "node scripts/sync-login.mjs && vite",
     "dev:setup": "node scripts/dev-setup.mjs",
-    "build": "node scripts/build-clients.mjs && node scripts/sync-login.mjs && vite build",
+    "build": "node scripts/build-clients.mjs && node scripts/sync-login.mjs && vite build && vite build --config vite.admin.config.js",
     "preview": "vite preview",
     "pages": "node scripts/dev-api.mjs dist",
     "sync:login": "node scripts/sync-login.mjs",
