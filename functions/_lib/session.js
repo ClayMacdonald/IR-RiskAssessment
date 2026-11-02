@@ -5,8 +5,13 @@
 // A code is valid through the end of its expires date (UTC).
 //
 // The session cookie carries only { cid, exp } and an HMAC-SHA256 signature made with SESSION_SECRET.
+// Production: __Host-irp_session; HttpOnly; Secure; SameSite=Strict; Path=/.
+// Local dev (isLocalDev, set by configuration only): irp_session without Secure, so browsers that
+// refuse Secure cookies over http://localhost (Safari) keep it. The __Host- prefix requires Secure.
+import { isLocalDev } from './http.js';
 
 export const COOKIE_NAME = '__Host-irp_session';
+export const DEV_COOKIE_NAME = 'irp_session';
 export const SESSION_SECONDS = 8 * 60 * 60;
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 
@@ -131,6 +136,14 @@ export async function verifySession(token, secret, now = Date.now()) {
   }
 }
 
+export function cookieName(env) {
+  return isLocalDev(env) ? DEV_COOKIE_NAME : COOKIE_NAME;
+}
+
+function cookieFlags(env) {
+  return isLocalDev(env) ? 'HttpOnly; SameSite=Strict; Path=/' : 'HttpOnly; Secure; SameSite=Strict; Path=/';
+}
+
 export function readCookie(request, name = COOKIE_NAME) {
   const header = request.headers.get('Cookie') || '';
   for (const part of header.split(';')) {
@@ -140,19 +153,19 @@ export function readCookie(request, name = COOKIE_NAME) {
   return null;
 }
 
-export function sessionCookie(token, maxAge) {
-  return `${COOKIE_NAME}=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=${maxAge}`;
+export function sessionCookie(token, maxAge, env) {
+  return `${cookieName(env)}=${token}; ${cookieFlags(env)}; Max-Age=${maxAge}`;
 }
 
-export function clearedCookie() {
-  return `${COOKIE_NAME}=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0`;
+export function clearedCookie(env) {
+  return `${cookieName(env)}=; ${cookieFlags(env)}; Max-Age=0`;
 }
 
 // Resolves the request's session to an active client, or null.
 export async function currentClient(request, env, now = Date.now()) {
   const codes = readAccessCodes(env);
   if (!codes || !env.SESSION_SECRET) return null;
-  const session = await verifySession(readCookie(request), env.SESSION_SECRET, now);
+  const session = await verifySession(readCookie(request, cookieName(env)), env.SESSION_SECRET, now);
   if (!session) return null;
   const entry = findClient(codes, session.cid);
   return isActive(entry, now) ? { clientId: entry.clientId, firmName: entry.firmName || '' } : null;

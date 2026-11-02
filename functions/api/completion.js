@@ -13,11 +13,13 @@
 import bank from '../../src/content/questions.json' with { type: 'json' };
 import clients from '../_lib/clients.generated.js';
 import { ROLE_LABELS } from '../../src/roles.js';
-import { allowedOrigins, clean, escapeHtml, hostnames, isLocalRequest, readJson, reply } from '../_lib/http.js';
+import { allowedOrigins, clean, escapeHtml, hostnames, isLocalDev, readJson, reply } from '../_lib/http.js';
 import { verifyTurnstile } from '../_lib/turnstile.js';
 
 const ROUTE = '/api/completion';
 const RESEND_URL = 'https://api.resend.com/emails';
+// The local placeholder key in .dev.vars.example. With it, nothing is sent to Resend.
+export const DRY_RUN_KEY = 're_local_dev_dummy';
 const UPSTREAM_TIMEOUT_MS = 8000;
 const EMAIL_RE = /^[^\s@<>"',;:()[\]\\]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
 const SECTION_NAMES = Object.fromEntries(bank.sections.map((s) => [s.id, s.name]));
@@ -34,7 +36,7 @@ export async function onRequest() {
 export async function handleCompletion(request, env, data = {}, fetchImpl = fetch, overrides = clients) {
   if (!data.clientId) return reply(ROUTE, 401, 'no_session');
 
-  const config = readConfig(env, request);
+  const config = readConfig(env);
   if (!config) return reply(ROUTE, 500, 'not_configured');
 
   const { body, error } = await readJson(ROUTE, request, config.origins);
@@ -57,18 +59,21 @@ export async function handleCompletion(request, env, data = {}, fetchImpl = fetc
     if (!human) return reply(ROUTE, 403, 'turnstile_failed');
   }
 
+  // Local dev: everything above still ran (session, validation). Log the outcome only and stop.
+  if (config.apiKey === DRY_RUN_KEY) return reply(ROUTE, 200, 'dry_run_would_send', { body: { ok: true } });
+
   const sent = await sendEmail({ ...completion, clientId: data.clientId, firm: data.firmName || data.clientId }, config, fetchImpl);
   if (!sent) return reply(ROUTE, 502, 'send_failed');
 
   return reply(ROUTE, 200, 'sent', { body: { ok: true } });
 }
 
-function readConfig(env = {}, request) {
+function readConfig(env = {}) {
   const apiKey = env.RESEND_API_KEY;
   const from = env.RESEND_FROM_EMAIL;
   const to = env.COMPLETION_NOTIFY_EMAIL;
   const turnstileSecret = env.TURNSTILE_SECRET_KEY;
-  const skipTurnstile = env.DEV_SKIP_TURNSTILE === '1' && isLocalRequest(request);
+  const skipTurnstile = isLocalDev(env);
   if (!apiKey || !from || !to || (!turnstileSecret && !skipTurnstile)) return null;
   return {
     apiKey,

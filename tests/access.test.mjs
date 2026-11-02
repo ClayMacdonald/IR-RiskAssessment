@@ -6,8 +6,10 @@ import { gate, isPublic } from '../functions/_middleware.js';
 import { handleLogin } from '../functions/api/login.js';
 import { onRequestPost as logout } from '../functions/api/logout.js';
 import { clientResponse } from '../functions/api/client.js';
+import { isLocalDev } from '../functions/_lib/http.js';
 import {
   COOKIE_NAME,
+  DEV_COOKIE_NAME,
   generateCode,
   hashCode,
   normalizeCode,
@@ -279,16 +281,56 @@ test('missing secrets fail closed', async () => {
   assert.equal((await handleLogin(loginReq({ code: CODE, turnstileToken: 't' }), noTurnstile, turnstileMock().fetchImpl)).status, 500);
 });
 
-test('DEV_SKIP_TURNSTILE works only on localhost', async () => {
-  const env = await makeEnv({ TURNSTILE_SECRET_KEY: '', DEV_SKIP_TURNSTILE: '1', ALLOWED_ORIGINS: `${ORIGIN},http://localhost:8788` });
-  const local = await handleLogin(
-    loginReq({ code: CODE }, { origin: 'http://localhost:8788', url: 'http://localhost:8788/api/login' }),
-    env,
-    turnstileMock().fetchImpl
-  );
-  assert.equal(local.status, 200);
-  const prod = await handleLogin(loginReq({ code: CODE }), env, turnstileMock().fetchImpl);
-  assert.equal(prod.status, 500, 'no Turnstile secret in production means not configured');
+// ---------- Local dev mode (configuration only) ----------
+
+const LOCAL = 'http://localhost:5173';
+const localEnv = async (extra = {}) =>
+  makeEnv({ LOCAL_DEV: '1', TURNSTILE_SECRET_KEY: '', ALLOWED_ORIGINS: `${LOCAL},http://127.0.0.1:8799`, ...extra });
+
+test('isLocalDev needs LOCAL_DEV=1 and only http localhost origins', async () => {
+  assert.ok(isLocalDev(await localEnv()));
+  assert.ok(!isLocalDev(await makeEnv({ LOCAL_DEV: '1' })), 'default https origins');
+  assert.ok(!isLocalDev(await localEnv({ ALLOWED_ORIGINS: `${LOCAL},${ORIGIN}` })), 'any https origin');
+  assert.ok(!isLocalDev(await localEnv({ ALLOWED_ORIGINS: 'http://evil.example' })), 'non-local http origin');
+  assert.ok(!isLocalDev(await localEnv({ LOCAL_DEV: 'true' })), 'only the exact value 1');
+  assert.ok(!isLocalDev(await localEnv({ LOCAL_DEV: undefined })));
+});
+
+test('local dev: no Turnstile, and a dev cookie without Secure that still opens the gate', async () => {
+  const env = await localEnv();
+  const { fetchImpl, calls } = turnstileMock();
+  const res = await handleLogin(loginReq({ code: CODE }, { origin: LOCAL, url: `${LOCAL}/api/login` }), env, fetchImpl);
+  assert.equal(res.status, 200);
+  assert.equal(calls.length, 0, 'Turnstile not called');
+  const cookie = res.headers.get('Set-Cookie');
+  assert.ok(cookie.startsWith(`${DEV_COOKIE_NAME}=`));
+  assert.ok(!cookie.includes('Secure'));
+  for (const flag of ['HttpOnly', 'SameSite=Strict', 'Path=/']) assert.ok(cookie.includes(flag), flag);
+
+  const token = cookie.split(';')[0].split('=')[1];
+  const devReq = new Request(`${LOCAL}/assets/a.js`, { headers: { Cookie: `${DEV_COOKIE_NAME}=${token}` } });
+  const { next } = nextOk();
+  assert.equal((await gate({ request: devReq, env, next, data: {} })).status, 200);
+});
+
+test('LOCAL_DEV in production configuration changes nothing', async () => {
+  // A stray LOCAL_DEV with production origins: Turnstile still required, cookie still __Host- and Secure.
+  const env = await makeEnv({ LOCAL_DEV: '1' });
+  const noToken = await handleLogin(loginReq({ code: CODE }), env, turnstileMock({ success: false }).fetchImpl);
+  assert.equal(noToken.status, 401);
+  const res = await handleLogin(loginReq({ code: CODE, turnstileToken: 'tok' }), env, turnstileMock().fetchImpl);
+  const cookie = res.headers.get('Set-Cookie');
+  assert.ok(cookie.startsWith(`${COOKIE_NAME}=`) && cookie.includes('Secure'));
+  // Without a Turnstile secret it refuses to run at all.
+  assert.equal((await handleLogin(loginReq({ code: CODE }), await makeEnv({ LOCAL_DEV: '1', TURNSTILE_SECRET_KEY: '' }), turnstileMock().fetchImpl)).status, 500);
+});
+
+test('production never accepts the dev cookie name', async () => {
+  const token = await signSession({ cid: 'acme', exp: nowSec() + 3600 }, SECRET);
+  const request = new Request(`${ORIGIN}/assets/a.js`, { headers: { Cookie: `${DEV_COOKIE_NAME}=${token}` } });
+  const { next, calls } = nextOk();
+  assert.equal((await gate({ request, env: await makeEnv({ LOCAL_DEV: '1' }), next })).status, 401);
+  assert.equal(calls.length, 0);
 });
 
 // ---------- Logout and client ----------

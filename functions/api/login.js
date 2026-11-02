@@ -7,7 +7,7 @@
 // - Codes are compared by SHA-256 hash against the ACCESS_CODES secret. Expired codes are rejected.
 // - Every failure returns the same generic response, so it never hints whether a code exists.
 // - The cookie carries only clientId and expiry, signed with SESSION_SECRET.
-import { allowedOrigins, hostnames, isLocalRequest, readJson, reply } from '../_lib/http.js';
+import { allowedOrigins, hostnames, isLocalDev, readJson, reply } from '../_lib/http.js';
 import { verifyTurnstile } from '../_lib/turnstile.js';
 import {
   SESSION_SECONDS,
@@ -38,7 +38,7 @@ export async function onRequest() {
 
 export async function handleLogin(request, env, fetchImpl = fetch, now = Date.now()) {
   const codes = readAccessCodes(env);
-  const skipTurnstile = env.DEV_SKIP_TURNSTILE === '1' && isLocalRequest(request);
+  const skipTurnstile = isLocalDev(env);
   if (!codes || !env.SESSION_SECRET || (!env.TURNSTILE_SECRET_KEY && !skipTurnstile)) {
     return reply(ROUTE, 500, 'not_configured');
   }
@@ -72,7 +72,7 @@ export async function handleLogin(request, env, fetchImpl = fetch, now = Date.no
   const exp = Math.min(nowSec + SESSION_SECONDS, codeExpiry(entry));
   const token = await signSession({ cid: entry.clientId, exp }, env.SESSION_SECRET);
   return reply(ROUTE, 200, 'signed_in', {
-    headers: { 'Set-Cookie': sessionCookie(token, exp - nowSec) },
+    headers: { 'Set-Cookie': sessionCookie(token, exp - nowSec, env) },
     body: { ok: true },
   });
 }

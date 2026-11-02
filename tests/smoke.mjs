@@ -6,7 +6,7 @@
 //   npm run pages                      # serves dist/ at http://127.0.0.1:8799 using .dev.vars
 //   npm run test:smoke                 # in another terminal
 //
-// node tests/smoke.mjs [baseUrl] [outputDir]. Code: SMOKE_CODE (default matches .dev.vars.example).
+// node tests/smoke.mjs [baseUrl] [outputDir]. Code: SMOKE_CODE env, default from scripts/dev-ports.mjs (dev:setup registers it).
 //
 // Runs:
 //   A  CSIRT Lead, desktop, keyboard only, mixed answers, 200% zoom check, Download again
@@ -24,10 +24,11 @@ import config from '../src/content/config.json' with { type: 'json' };
 import { buildBank } from '../src/bank.js';
 import { buildResults, correctIndex } from '../src/scoring.js';
 import { completionPayload } from '../src/payload.js';
+import { API_URL, SMOKE_CODE } from '../scripts/dev-ports.mjs';
 
-const BASE = process.argv[2] || 'http://127.0.0.1:8799';
+const BASE = process.argv[2] || API_URL;
 const OUT = process.argv[3] || 'smoke-output';
-const CODE = process.env.SMOKE_CODE || 'smoke-test-code-2026-xyzw';
+const CODE = process.env.SMOKE_CODE || SMOKE_CODE;
 const FIRM = 'Smoke Test Advisors';
 mkdirSync(OUT, { recursive: true });
 
@@ -346,7 +347,7 @@ async function unauthenticated() {
   const r = await new AxeBuilder({ page: p }).withTags(AXE_TAGS).analyze();
   check(r.violations.length === 0, `unauth: axe clean on sign-in error state ${r.violations.map((v) => v.id).join(', ')}`);
   const cookies = await context.cookies();
-  check(!cookies.some((c) => c.name === '__Host-irp_session'), 'unauth: no session cookie after a wrong code');
+  check(!cookies.some((c) => /irp_session$/.test(c.name)), 'unauth: no session cookie after a wrong code');
   await browser.close();
 }
 

@@ -1,7 +1,7 @@
 // Unit tests for functions/api/completion.js. Turnstile and Resend are mocked; no network calls.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { handleCompletion, onRequest, buildEmail, validate } from '../functions/api/completion.js';
+import { handleCompletion, onRequest, buildEmail, validate, DRY_RUN_KEY } from '../functions/api/completion.js';
 import base from '../src/content/questions.json' with { type: 'json' };
 import config from '../src/content/config.json' with { type: 'json' };
 import { buildBank } from '../src/bank.js';
@@ -161,10 +161,29 @@ test('Resend failure returns 502', async () => {
   assert.equal((await run(req(payload()), { resend: 'throw' })).res.status, 502);
 });
 
-test('missing configuration returns 500; DEV_SKIP_TURNSTILE only on localhost', async () => {
+test('missing configuration returns 500; LOCAL_DEV with production origins does not skip Turnstile', async () => {
   assert.equal((await run(req(payload()), {}, { env: { ...ENV, COMPLETION_NOTIFY_EMAIL: '' } })).res.status, 500);
-  const devEnv = { ...ENV, TURNSTILE_SECRET_KEY: '', DEV_SKIP_TURNSTILE: '1' };
-  assert.equal((await run(req(payload()), {}, { env: devEnv })).res.status, 500);
+  const strayDev = { ...ENV, TURNSTILE_SECRET_KEY: '', LOCAL_DEV: '1' };
+  assert.equal((await run(req(payload()), {}, { env: strayDev })).res.status, 500);
+});
+
+test('local dev: Turnstile skipped and the dummy Resend key is a dry run with no personal data logged', async () => {
+  const LOCAL = 'http://localhost:5173';
+  const env = { ...ENV, LOCAL_DEV: '1', TURNSTILE_SECRET_KEY: '', RESEND_API_KEY: DRY_RUN_KEY, ALLOWED_ORIGINS: LOCAL };
+  const { res, calls, logs } = await run(req(payload(), { origin: LOCAL }), {}, { env });
+  assert.equal(res.status, 200);
+  assert.equal(calls.length, 0, 'no Turnstile or Resend call');
+  assert.deepEqual(JSON.parse(logs[0]), { route: '/api/completion', status: 200, outcome: 'dry_run_would_send' });
+  assert.ok(!logs.join('\n').includes('Jordan'));
+  // The dry run still requires a session and valid fields.
+  assert.equal((await run(req(payload(), { origin: LOCAL }), {}, { env, session: {} })).res.status, 401);
+  assert.equal((await run(req({ ...payload(), role: 'Intern' }, { origin: LOCAL }), {}, { env })).res.status, 400);
+});
+
+test('the dummy key is a dry run even in production configuration, so it can never reach Resend', async () => {
+  const { res, calls } = await run(req(payload()), {}, { env: { ...ENV, RESEND_API_KEY: DRY_RUN_KEY } });
+  assert.equal(res.status, 200);
+  assert.equal(calls.filter((c) => c.url.includes('resend')).length, 0);
 });
 
 test('logs carry the outcome only, never personal data or secrets', async () => {

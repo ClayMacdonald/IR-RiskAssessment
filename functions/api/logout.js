@@ -4,8 +4,8 @@ import { clearedCookie } from '../_lib/session.js';
 
 const ROUTE = '/api/logout';
 
-export async function onRequestPost() {
-  return reply(ROUTE, 200, 'signed_out', { headers: { 'Set-Cookie': clearedCookie() }, body: { ok: true } });
+export async function onRequestPost({ env } = {}) {
+  return reply(ROUTE, 200, 'signed_out', { headers: { 'Set-Cookie': clearedCookie(env) }, body: { ok: true } });
 }
 
 export async function onRequest() {

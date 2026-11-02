@@ -1,10 +1,27 @@
-# Local secrets for "npm run pages" (wrangler pages dev). Copy to .dev.vars, which is git-ignored.
-# Test values only. Never put production secrets here.
-SESSION_SECRET=local-dev-session-secret-not-for-production-use-0123456789
-# Access code for local use and the smoke test: smoke-test-code-2026-xyzw
-ACCESS_CODES={"2e21573c4b3012ce3007ee1a0419d723336132d4d72116f307e9ac784bb94c66":{"clientId":"smoke-test","firmName":"Smoke Test Advisors","expires":"2099-12-31"}}
-# Cloudflare's public test site key. The login page loads Turnstile with it.
+# Local secrets for the Pages Functions (npm run dev, npm run pages).
+# Run "npm run dev:setup" once: it copies this file to .dev.vars (git-ignored), generates
+# SESSION_SECRET, writes ACCESS_CODES and prints your local access code.
+# Test values only. Never put production secrets here, and never set LOCAL_DEV in Cloudflare.
+
+# Local dev mode. Skips Turnstile verification and drops Secure from the session cookie so it works
+# over http://localhost. Ignored unless every ALLOWED_ORIGINS entry is http localhost or 127.0.0.1.
+LOCAL_DEV=1
+
+# Signs session cookies. dev:setup replaces the placeholder with 48 random bytes.
+SESSION_SECRET=replace-me
+
+# SHA-256 of each access code -> { clientId, firmName, expires }. dev:setup writes a local code
+# and the smoke-test code (smoke-test-code-2026-xyzw).
+ACCESS_CODES={}
+
+# Cloudflare's public Turnstile test keys (always pass). The login page loads the widget with the site key.
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
-# Skips server-side Turnstile verification, and only for requests to localhost or 127.0.0.1.
-DEV_SKIP_TURNSTILE=1
-ALLOWED_ORIGINS=http://localhost:8799,http://127.0.0.1:8799,http://localhost:5173
+TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
+
+# Completion notices. This dummy key makes the Function log "dry_run_would_send" and never call Resend.
+RESEND_API_KEY=re_local_dev_dummy
+RESEND_FROM_EMAIL=IRP Local <local@example.com>
+COMPLETION_NOTIFY_EMAIL=local@example.com
+
+# Origins allowed to post to the Functions. dev:setup sets this from scripts/dev-ports.mjs.
+ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:8799,http://localhost:8799

@@ -25,14 +25,27 @@ Requires Node 22.
 
 ```
 npm install
-cp .dev.vars.example .dev.vars     # local test secrets, git-ignored
-npm run build
-npm run pages                      # the real gate and Functions at http://127.0.0.1:8799
+npm run dev:setup      # once: creates .dev.vars and prints your local access code
+npm run dev            # starts the API (port 8799) and Vite (port 5173) together
 ```
 
-Sign in with the code in `.dev.vars.example` (`smoke-test-code-2026-xyzw`).
+Open http://localhost:5173 and sign in with the code `dev:setup` printed. Lost it? Run `npm run dev:setup` again for a new one (your other settings are kept).
 
-For live reload while editing screens, keep `npm run pages` running and also run `npm run dev` (http://localhost:5173). Vite proxies `/api` to port 8799, so sign-in and the client override work. Vite itself does not enforce the gate; only the Pages runtime does.
+`npm run dev` runs two labeled processes in one terminal:
+
+- `[api]`: the Pages Functions (sign-in, session, `/api/client`, `/api/completion`) in Wrangler on 127.0.0.1:8799, with secrets from `.dev.vars`.
+- `[vite]`: the app with live reload on localhost:5173. Vite forwards `/api/*` to the API and starts only once the API answers. If either process stops with an error, both stop.
+
+For debugging, run them separately with `npm run dev:api` and `npm run dev:vite`. If Vite runs without the API, `/api/*` returns 502 with `API server not running, use npm run dev`, and the terminal shows one line instead of a stack trace.
+
+What is different locally (all set in `.dev.vars` by `dev:setup`; production does not change):
+
+- `LOCAL_DEV=1` skips Turnstile verification and names the session cookie `irp_session` without `Secure`, so it works over plain http (Safari rejects Secure cookies on http://localhost). It is ignored unless every `ALLOWED_ORIGINS` entry is http localhost or 127.0.0.1, so it can never take effect in production.
+- `RESEND_API_KEY=re_local_dev_dummy` means completion notices are never sent. The API logs `dry_run_would_send` (no personal data) and returns 200.
+- `.env.development` holds Cloudflare's public Turnstile test site key, so the report screen's disclosure shows in dev.
+- Vite serves files without the access gate. Only the Pages runtime enforces it. To check the real gate and CSP, use `npm run build` and `npm run pages` (the production build plus Functions on http://127.0.0.1:8799).
+
+Ports live in `scripts/dev-ports.mjs`. Set `DEV_API_PORT` to move the API, then rerun `npm run dev:setup` so `ALLOWED_ORIGINS` matches.
 
 ## Tests
 
@@ -40,16 +53,17 @@ For live reload while editing screens, keep `npm run pages` running and also run
 npm run test:unit
 ```
 
-Node's test runner, no network. Covers the middleware and sessions, sign-in, the completion Function (Turnstile and Resend mocked), the content schema and copy lint, scoring for both question types, audience routing, client overrides and the login page's copies of the design system.
+Node's test runner, no network. Covers the middleware and sessions (including local dev mode), sign-in, the completion Function (Turnstile and Resend mocked, plus the dry run), the content schema and copy lint, scoring for both question types, roles, client overrides and the login page's copies of the design system.
 
 ```
 npx playwright install chromium                                  # first time only
+npm run dev:setup                                                # once, registers the smoke-test code
 VITE_TURNSTILE_SITE_KEY=1x00000000000000000000AA npm run build
 npm run pages                                                    # one terminal
 npm run test:smoke                                               # another
 ```
 
-The smoke test runs against the Pages runtime, so the access gate, the Functions and the CSP in `public/_headers` all apply. It signs in as four different CSIRT roles at 320px, phone and desktop widths (two runs keyboard only, one with forced colors and reduced motion), runs axe on every screen state, checks scores, the crosswalk and the PDF text, checks that exactly one completion notice is sent with only the disclosed fields, that the report still downloads when the notice fails, and that the bundle and APIs are blocked before sign-in. Screenshots, PDFs and PDF text go to `smoke-output/` (git-ignored). The test serves a stand-in for the Turnstile script and answers `/api/completion` itself.
+The smoke test runs against the Pages runtime, so the access gate, the Functions and the CSP in `public/_headers` all apply. It signs in as four different CSIRT roles at 320px, phone and desktop widths (two runs keyboard only, one with forced colors and reduced motion), runs axe on every screen state, checks scores, the crosswalk and the PDF text, checks that exactly one completion notice is sent with only the disclosed fields, that the report still downloads when the notice fails, and that the bundle and APIs are blocked before sign-in. It uses the local secrets, so it runs in local dev mode; the production cookie and Turnstile paths are covered by the unit tests. Screenshots, PDFs and PDF text go to `smoke-output/` (git-ignored). The test serves a stand-in for the Turnstile script and answers `/api/completion` itself.
 
 ## Access control
 
@@ -183,7 +197,8 @@ After any zone or deploy change, sign in, open the browser console and run `fetc
 | `RESEND_FROM_EMAIL` | Plaintext | Sender on the verified Resend domain, for example `IRP Readiness <notify@notify.advisordefense.com>` |
 | `COMPLETION_NOTIFY_EMAIL` | Plaintext | Inbox for completion notices (comma-separated for more than one) |
 | `ALLOWED_ORIGINS` | Plaintext, optional | Origins allowed to post. Default `https://irp.advisordefense.com,https://irp-assessment.pages.dev` |
-| `DEV_SKIP_TURNSTILE` | Local only | Never set in Cloudflare. In `.dev.vars` it skips Turnstile for localhost requests only. |
+| `LOCAL_DEV` | Local only | Never set in Cloudflare. In `.dev.vars` it turns on local dev mode (no Turnstile check, session cookie without Secure). Ignored unless every allowed origin is http localhost. |
+| `DEV_API_PORT` | Local only, optional | Port for the local API (default 8799). |
 
 ### Rotating keys
 

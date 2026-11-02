@@ -7,10 +7,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "concurrently --names api,vite --prefix-colors magenta,cyan --kill-others-on-fail \"npm:dev:api\" \"node scripts/wait-for-api.mjs && npm run dev:vite\"",
+    "dev:api": "node scripts/dev-api.mjs",
+    "dev:vite": "node scripts/sync-login.mjs && vite",
+    "dev:setup": "node scripts/dev-setup.mjs",
     "build": "node scripts/build-clients.mjs && node scripts/sync-login.mjs && vite build",
     "preview": "vite preview",
-    "pages": "wrangler pages dev dist --port 8799",
+    "pages": "node scripts/dev-api.mjs dist",
     "sync:login": "node scripts/sync-login.mjs",
     "extract:irp": "node scripts/extract-irp.mjs",
     "add-client": "node scripts/add-client.mjs",
@@ -24,10 +27,11 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
+    "concurrently": "10.0.6",
     "pdf-parse": "^2.4.5",
     "playwright": "^1.64.1",
     "vite": "^8.3.5",
-    "wrangler": "^4.156.0"
+    "wrangler": "4.156.0"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,

@@ -33,11 +33,16 @@ export function hostnames(origins) {
   });
 }
 
-// True only for local development hosts. Used to skip Turnstile in local smoke tests when
-// DEV_SKIP_TURNSTILE=1. A production hostname can never satisfy this.
-export function isLocalRequest(request) {
-  const host = new URL(request.url).hostname;
-  return host === 'localhost' || host === '127.0.0.1';
+const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+
+// Local development mode, decided by configuration only, never by anything in the request.
+// True only when LOCAL_DEV=1 AND every allowed origin is plain http on localhost or 127.0.0.1.
+// Production's default origins are https, so a stray LOCAL_DEV in Cloudflare has no effect.
+// When true: Turnstile is not verified and the session cookie drops Secure (see session.js).
+export function isLocalDev(env = {}) {
+  if (env.LOCAL_DEV !== '1') return false;
+  const origins = allowedOrigins(env);
+  return origins.length > 0 && origins.every((o) => LOCAL_ORIGIN.test(o));
 }
 
 // Checks origin, content type and size, then parses JSON.
