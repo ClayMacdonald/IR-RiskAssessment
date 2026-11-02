@@ -1,10 +1,11 @@
 // Client detail: code status and actions (new code, change expiry, revoke), and the client's
-// completed assessments.
+// completed assessments with a PDF download and delete for each.
 import config from '../content/config.json';
 import { readinessBand, knowledgeBand } from '../scoring.js';
 import { icon } from '../components/icons.js';
 import { el, escapeHtml } from '../util.js';
 import { api } from './api.js';
+import { downloadReport } from './report.js';
 import { chip, codePanel, errorNotice, formatDate, formatTimestamp, statusChip, wireCopy } from './format.js';
 
 function scoreChip(score, band) {
@@ -17,7 +18,7 @@ function submissionRows(submissions) {
     <table class="admin-table">
       <thead><tr>
         <th scope="col">Person</th><th scope="col">Role</th><th scope="col">Completed</th>
-        <th scope="col">Program Readiness</th><th scope="col">IRP Knowledge</th>
+        <th scope="col">Program Readiness</th><th scope="col">IRP Knowledge</th><th scope="col"><span class="sr-only">Actions</span></th>
       </tr></thead>
       <tbody>${submissions
         .map(
@@ -28,6 +29,10 @@ function submissionRows(submissions) {
           <td data-label="Completed">${escapeHtml(formatTimestamp(s.completedAt))}</td>
           <td data-label="Program Readiness">${scoreChip(s.readinessScore, readinessBand)}</td>
           <td data-label="IRP Knowledge">${scoreChip(s.knowledgeScore, (v) => knowledgeBand(v, config.knowledgeBands))}</td>
+          <td class="admin-row-actions">
+            <button type="button" class="btn btn-secondary btn-sm" data-download aria-label="Download the PDF report for ${escapeHtml(s.name)}, ${escapeHtml(formatTimestamp(s.completedAt))}">${icon('download', 16, 2)} PDF</button>
+            <button type="button" class="btn btn-text btn-sm btn-danger" data-delete aria-label="Delete the record for ${escapeHtml(s.name)}, ${escapeHtml(formatTimestamp(s.completedAt))}">Delete</button>
+          </td>
         </tr>`
         )
         .join('')}</tbody>
@@ -43,7 +48,7 @@ function summary(client) {
     </dl>`;
 }
 
-export function renderClient({ clientId }) {
+export function renderClient({ clientId, highlight = null }) {
   const element = el(`
     <div class="container-page admin-page">
       <p class="admin-back"><a href="#/clients">${icon('arrowLeft', 16, 2)} All clients</a></p>
@@ -99,9 +104,18 @@ export function renderClient({ clientId }) {
 
       <section class="card" aria-labelledby="subs-title">
         <h2 class="card-title" id="subs-title">Completed assessments</h2>
-        <p class="card-intro">Saved when each person downloaded their report. Kept ${config.retentionYears} years.</p>
+        <p class="card-intro">Saved when each person downloaded their report. Kept ${config.retentionYears} years. The PDF is rebuilt on this device from the saved answers.</p>
+        <div data-subs-status></div>
         <div data-subs>${submissionRows(data.submissions)}</div>
+        ${
+          data.submissions.length
+            ? `<div class="admin-delete-all">
+          <button type="button" class="btn btn-text btn-danger" data-delete-all>Delete all ${data.submissions.length} records for this client</button>
+        </div>`
+            : ''
+        }
       </section>`;
+    wireSubmissions(data.submissions);
     showClient(data.client);
 
     const status = body.querySelector('[data-code-status]');
@@ -140,6 +154,72 @@ export function renderClient({ clientId }) {
         status.innerHTML = '<p class="admin-ok" role="status">Access revoked. Issue a new code to restore it.</p>';
       });
     });
+  }
+
+  function wireSubmissions(submissions) {
+    const subsStatus = body.querySelector('[data-subs-status]');
+    const subs = body.querySelector('[data-subs]');
+
+    for (const row of subs.querySelectorAll('[data-submission]')) {
+      const id = row.dataset.submission;
+      const s = submissions.find((x) => x.id === id);
+      const download = row.querySelector('[data-download]');
+      download.addEventListener('click', async () => {
+        subsStatus.innerHTML = '';
+        download.disabled = true;
+        try {
+          await downloadReport(id);
+        } catch (err) {
+          subsStatus.innerHTML = errorNotice(err.message);
+        } finally {
+          download.disabled = false;
+        }
+      });
+      row.querySelector('[data-delete]').addEventListener('click', async () => {
+        if (!window.confirm(`Delete the record for ${s.name}? This cannot be undone.`)) return;
+        subsStatus.innerHTML = '';
+        try {
+          await api.deleteSubmission(id);
+          reload(`Deleted the record for ${s.name}.`);
+        } catch (err) {
+          subsStatus.innerHTML = errorNotice(err.message);
+        }
+      });
+    }
+
+    const all = body.querySelector('[data-delete-all]');
+    if (all) {
+      all.addEventListener('click', async () => {
+        if (!window.confirm(`Delete all ${submissions.length} records for ${client.firmName}? This cannot be undone.`)) return;
+        try {
+          const res = await api.changeClient(clientId, { action: 'delete_records' });
+          reload(`Deleted ${res.deleted} records.`);
+        } catch (err) {
+          subsStatus.innerHTML = errorNotice(err.message);
+        }
+      });
+    }
+
+    if (highlight) {
+      const target = subs.querySelector(`[data-submission="${CSS.escape(highlight)}"]`);
+      if (target) {
+        target.classList.add('is-target');
+        target.scrollIntoView({ block: 'center' });
+      }
+    }
+  }
+
+  // Reloads the records after a delete and confirms it in place.
+  async function reload(message) {
+    try {
+      const data = await api.client(clientId);
+      render(data);
+      const subsStatus = body.querySelector('[data-subs-status]');
+      subsStatus.innerHTML = `<p class="admin-ok" role="status" tabindex="-1">${escapeHtml(message)}</p>`;
+      subsStatus.firstElementChild.focus();
+    } catch (err) {
+      body.innerHTML = errorNotice(err.message);
+    }
   }
 
   api

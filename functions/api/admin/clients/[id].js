@@ -1,7 +1,8 @@
 // GET  /api/admin/clients/{id}: one client and a summary of its completed assessments.
 // POST /api/admin/clients/{id}: { action: "new_code" } returns a new code once (the old code and
 //   every session made with it stop working), { action: "set_expiry", expires } changes the expiry,
-//   { action: "revoke" } blocks sign-in and ends live sessions at once.
+//   { action: "revoke" } blocks sign-in and ends live sessions at once,
+//   { action: "delete_records" } deletes every completed assessment for the client.
 //
 // The middleware has verified the Cloudflare Access identity (data.adminEmail). Every view and
 // change writes an audit row.
@@ -93,6 +94,15 @@ export async function changeClient(request, env, data = {}, clientId, now = new 
       auditStatement(env.DB, { actor, action: 'client_revoke', clientId, now }),
     ]);
     return reply(ROUTE, 200, 'revoked', { body: { ok: true, client: clientJson({ ...client, revokedAt }) } });
+  }
+
+  if (body.action === 'delete_records') {
+    const { count } = await env.DB.prepare('SELECT COUNT(*) AS count FROM submissions WHERE client_id = ?').bind(clientId).first();
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM submissions WHERE client_id = ?').bind(clientId),
+      auditStatement(env.DB, { actor, action: 'client_delete_records', clientId, detail: { deleted: count }, now }),
+    ]);
+    return reply(ROUTE, 200, 'records_deleted', { body: { ok: true, client: clientJson(client), deleted: count } });
   }
 
   return reply(ROUTE, 400, 'unknown_action');

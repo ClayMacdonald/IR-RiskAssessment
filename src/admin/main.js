@@ -1,6 +1,6 @@
 // Admin dashboard for AdvisorDefense staff, served from /admin/ behind Cloudflare Access.
-// Hash routes: #/clients (default) and #/clients/{id}. Nothing is kept in the browser beyond the
-// current screen.
+// Hash routes: #/clients (default), #/clients/{id} and #/submissions/{id} (linked from the
+// completion email). Nothing is kept in the browser beyond the current screen.
 import '@fontsource/open-sans/latin-400.css';
 import '@fontsource/open-sans/latin-600.css';
 import '@fontsource/open-sans/latin-700.css';
@@ -15,6 +15,7 @@ import { el, escapeHtml } from '../util.js';
 import { api } from './api.js';
 import { renderClients } from './clients.js';
 import { renderClient } from './client.js';
+import { renderSubmission } from './submission.js';
 
 const app = document.getElementById('app');
 const main = document.createElement('main');
@@ -49,6 +50,7 @@ function route() {
   const parts = window.location.hash.replace(/^#\/?/, '').split('/').map(decodeURIComponent);
   let view;
   if (parts[0] === 'clients' && parts[1]) view = renderClient({ clientId: parts[1], navigate });
+  else if (parts[0] === 'submissions' && parts[1]) view = renderSubmission({ id: parts[1], navigate });
   else view = renderClients({ navigate });
   main.replaceChildren(view.element);
   window.scrollTo(0, 0);
