@@ -41,7 +41,7 @@ For debugging, run them separately with `npm run dev:api` and `npm run dev:vite`
 What is different locally (all set in `.dev.vars` by `dev:setup`; production does not change):
 
 - `LOCAL_DEV=1` skips Turnstile verification and names the session cookie `irp_session` without `Secure`, so it works over plain http (Safari rejects Secure cookies on http://localhost). It is ignored unless every `ALLOWED_ORIGINS` entry is http localhost or 127.0.0.1, so it can never take effect in production.
-- `RESEND_API_KEY=re_local_dev_dummy` means completion notices are never sent. The API logs `dry_run_would_send` (no personal data) and returns 200.
+- `RESEND_API_KEY=re_local_dev_dummy` means completion emails are never sent. The record is still saved to the local database, and the API logs `stored_dry_run` (no personal data) and returns 200.
 - `.env.development` holds Cloudflare's public Turnstile test site key, so the report screen's disclosure shows in dev.
 - Vite serves files without the access gate. Only the Pages runtime enforces it. To check the real gate and CSP, use `npm run build` and `npm run pages` (the production build plus Functions on http://127.0.0.1:8799).
 
@@ -177,6 +177,17 @@ Security model: POST only, allowed origins only, JSON only, 4 KB cap, a signed-i
 7. On GitHub, protect `main` with a ruleset: pull request required, no force pushes, no deletion.
 8. Create the rate limiting rule above and the Turnstile widget (hostnames `irp.advisordefense.com` and `irp-assessment.pages.dev`).
 
+### Admin access (Cloudflare Access)
+
+The admin side (`/admin/` and `/api/admin/*`) is for AdvisorDefense staff only.
+
+1. Zero Trust, Access, Applications, Add an application, Self-hosted. Name "IRP Assessment Admin". Session duration 8 hours.
+2. Public hostnames: `irp.advisordefense.com` with path `admin`, and `irp.advisordefense.com` with path `api/admin`.
+3. Policy "AdvisorDefense staff": Action Allow, Include, Emails ending in `@advisordefense.com` (or list named people to narrow it). Login method: One-time PIN.
+4. Copy the application's AUD tag into `ACCESS_AUD`, and set `ACCESS_TEAM_DOMAIN` and `ADMIN_EMAIL_DOMAIN`. Redeploy.
+
+The Functions also verify the Access JWT on every admin request (signature, issuer, audience, expiry and email domain), so the admin side stays closed on `irp-assessment.pages.dev`, which Access does not cover, and if the Access application is ever changed by mistake. A client's access code never opens the admin side. [VERIFY] the path-based hostname setup in the current Zero Trust dashboard when creating the application.
+
 ### Zone settings that must keep excluding this site
 
 The site runs on the `advisordefense.com` zone with the main website. Two zone settings broke the Reg S-P app on 2026-10-29 and must exclude this host too:
@@ -200,6 +211,10 @@ After any zone or deploy change, sign in, open the browser console and run `fetc
 | `RESEND_FROM_EMAIL` | Plaintext | Sender on the verified Resend domain, for example `IRP Readiness <notify@notify.advisordefense.com>` |
 | `COMPLETION_NOTIFY_EMAIL` | Plaintext | Inbox for completion notices with the dashboard link (comma-separated for more than one). The link uses the first `ALLOWED_ORIGINS` entry. |
 | `ALLOWED_ORIGINS` | Plaintext, optional | Origins allowed to post. Default `https://irp.advisordefense.com,https://irp-assessment.pages.dev` |
+| `ACCESS_TEAM_DOMAIN` | Plaintext | The Zero Trust team domain, for example `advisordefense.cloudflareaccess.com`. The admin side verifies Access JWTs against its keys. |
+| `ACCESS_AUD` | Plaintext | The Access application's Application Audience (AUD) tag. |
+| `ADMIN_EMAIL_DOMAIN` | Plaintext | `advisordefense.com`. Only Access identities with an email at this domain reach the admin side. |
+| `ADMIN_DEV_EMAIL` | Local only | Never set in Cloudflare. Stands in for the Access JWT in local dev mode. |
 | `LOCAL_DEV` | Local only | Never set in Cloudflare. In `.dev.vars` it turns on local dev mode (no Turnstile check, session cookie without Secure). Ignored unless every allowed origin is http localhost. |
 | `DEV_API_PORT` | Local only, optional | Port for the local API (default 8799). |
 

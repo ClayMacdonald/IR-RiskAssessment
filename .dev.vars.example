@@ -14,10 +14,16 @@ SESSION_SECRET=replace-me
 TURNSTILE_SITE_KEY=1x00000000000000000000AA
 TURNSTILE_SECRET_KEY=1x0000000000000000000000000000000AA
 
-# Completion notices. This dummy key makes the Function log "dry_run_would_send" and never call Resend.
+# Completion notices. With this dummy key the Function saves the record, logs "stored_dry_run" and never calls Resend.
 RESEND_API_KEY=re_local_dev_dummy
 RESEND_FROM_EMAIL=IRP Local <local@example.com>
 COMPLETION_NOTIFY_EMAIL=local@example.com
 
 # Origins allowed to post to the Functions. dev:setup sets this from scripts/dev-ports.mjs.
 ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173,http://127.0.0.1:8799,http://localhost:8799
+
+# Admin dashboard. In production, Cloudflare Access signs admins in and the Functions verify its JWT
+# (ACCESS_TEAM_DOMAIN, ACCESS_AUD). Locally, with LOCAL_DEV=1, ADMIN_DEV_EMAIL stands in for the JWT.
+# It must end with @ADMIN_EMAIL_DOMAIN. Ignored outside local dev mode.
+ADMIN_EMAIL_DOMAIN=advisordefense.com
+ADMIN_DEV_EMAIL=dev@advisordefense.com
