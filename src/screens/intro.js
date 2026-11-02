@@ -33,7 +33,7 @@ export function renderIntro({ state, go }) {
             <ul class="hero-stats">
               <li class="stat"><span class="stat-value num">${bank.questions.length}</span><span class="stat-label">Questions</span></li>
               <li class="stat"><span class="stat-value num stat-accent">${bank.sections.length}</span><span class="stat-label">Sections</span></li>
-              <li class="stat"><span class="stat-value num">15<span class="stat-unit"> min</span></span><span class="stat-label">Approximate time</span></li>
+              <li class="stat"><span class="stat-value num">10<span class="stat-unit"> min</span></span><span class="stat-label">Approximate time</span></li>
             </ul>
             <ul class="trust-strip">
               <li>${icon('lock', 18)} Your answers stay in your browser</li>

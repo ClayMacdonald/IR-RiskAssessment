@@ -22,8 +22,10 @@ function scoreBlock(id, title, result, note) {
 function crosswalkRows(rows, showReadiness) {
   return rows
     .map((r) => {
-      const k = r.knowledge ? `${r.knowledge.correct} of ${r.knowledge.total} correct` : 'None asked';
-      const kTone = r.knowledge ? knowledgeBand(Math.round((r.knowledge.correct / r.knowledge.total) * 100), config.knowledgeBands).tone : 'neutral';
+      // A section can be knowledge-only or readiness-only. Show a chip for each kind it has.
+      const knowledge = r.knowledge
+        ? `<span class="chip chip-${knowledgeBand(Math.round((r.knowledge.correct / r.knowledge.total) * 100), config.knowledgeBands).tone}">${r.knowledge.correct} of ${r.knowledge.total} correct</span>`
+        : '';
       const readiness = r.readiness
         ? `<span class="chip chip-${readinessBand(r.readiness.percent).tone}">${r.readiness.percent}% readiness</span>`
         : '';
@@ -32,7 +34,7 @@ function crosswalkRows(rows, showReadiness) {
           <th scope="row">${escapeHtml(r.name)}</th>
           <td data-label="Your IRP">${escapeHtml(r.irp_sections)}</td>
           <td data-label="Reg S-P requirement">${escapeHtml(r.regsp_requirement)}</td>
-          <td data-label="Your result" class="xw-result"><span class="chip chip-${kTone}">${k}</span>${showReadiness ? readiness : ''}</td>
+          <td data-label="Your result" class="xw-result">${knowledge}${showReadiness ? readiness : ''}</td>
         </tr>`;
     })
     .join('');

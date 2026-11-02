@@ -7,7 +7,7 @@ A password-protected assessment for AdvisorDefense clients at `irp.advisordefens
 
 Every question shows the IRP section it tests and the Reg S-P requirement that section satisfies, so the client sees that their IRP is how they meet Reg S-P. It supports the **Incident Response Risk Assessment** service: run it after the IRP is delivered, and again at each annual IRP review. The PDF is a dated training and readiness record for the client's compliance file.
 
-It is for CSIRT members and firm leadership only: 24 questions (16 IRP knowledge, 8 program readiness), about 15 minutes. There is no staff path.
+It is for CSIRT members and firm leadership only: 15 questions (8 IRP knowledge, 7 program readiness), about 10 minutes. There is no staff path.
 
 Answers stay in the browser, in memory only. The PDF is built on the device. When someone downloads it, one Pages Function emails AdvisorDefense a summary (see [Completion notifications](#completion-notifications)). No analytics, trackers or third-party fonts. The only third-party request is Cloudflare Turnstile.
 
@@ -116,21 +116,17 @@ Client IRPs are tailored, so a client can have `src/content/clients/<clientId>.j
 {
   "irpVersion": "Acme Wealth Partners IRP, version 2.1 (March 2027)",
   "facts": {
-    "csirtLead": "Incident Response Lead",
-    "secondaryLead": "Deputy Incident Response Lead",
-    "level1Response": "30 minutes",
-    "level1Updates": "every 30 minutes",
     "carrier": "Acme Mutual Cyber"
   },
   "hide": ["roles_tabletop"],
   "replace": {
-    "crit_level1_response": { "options": [ { "label": "Within 30 minutes, with status updates every 30 minutes", "correct": true }, { "label": "..." }, { "label": "..." }, { "label": "..." } ] }
+    "notice_template": { "irp_ref": "Appendix G Client Breach Notice" }
   },
   "add": [ { "id": "acme_wire_callback", "section": 4, "type": "knowledge", "...": "full question object" } ]
 }
 ```
 
-- `facts` fill the `{{placeholders}}` in the default questions. If a tailored fact makes a distractor correct (for example a client whose Level 1 time is 4 hours), `replace` that question's options too.
+- `facts` fill the `{{placeholders}}` in the default questions (today only `{{carrier}}`). Add a placeholder to a question when a client's IRP differs on a fact it tests, and `replace` the options too if the tailored fact would make a distractor correct.
 - `hide` removes questions by ID. `replace` merges fields into a question. `add` appends full questions, placed at the end of their section.
 - `npm run test:unit` validates every override file (one correct option, 2/1/0 points, required references, no unfilled placeholders).
 
@@ -149,7 +145,7 @@ Question rules (enforced by `tests/content.test.mjs`):
 - Every question needs `id`, `section` (1 to 8), `type`, `title`, `question`, `options`, `irp_ref`, `regsp_ref` (a CFR cite, or `none:` with a reason), `tie_in` and `mapped_service`.
 - `knowledge`: four options, exactly one `"correct": true`, plus `explanation`. The correct answer must not stand out by length. Options are shuffled per visit. No feedback during the quiz.
 - `readiness`: options score 2, 1, 0 in order, plus `help` and `exam_finding`.
-- Size: keep the bank at 22 to 26 questions with at least two per section. Everyone answers every question; there is no audience routing.
+- Size: keep the bank at 13 to 17 questions with at least one per section and at least six of each type. Everyone answers every question; there is no audience routing.
 - Copy: plain English, short sentences. Use "aligned" and "exam-ready". Never "compliant", "certified", "pass" or "fail". No em dashes, en dashes or double hyphens. Role titles, never personal names.
 
 Scoring: Program Readiness uses the Reg S-P app's math (section percent, averaged over sections with readiness questions; 85 Exam-ready, 60 Gaps an examiner would note). IRP Knowledge is percent correct (90 Ready to respond, 70 Refresher recommended, below that Retraining needed; thresholds in `config.json`).

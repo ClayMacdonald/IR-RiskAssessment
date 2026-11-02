@@ -36,4 +36,4 @@ Removed 2026-11-02 so the tool serves the CSIRT only. The 11-question staff path
 
 ## Held-out questions
 
-Add `records_retention`, `notice_contents` and `notice_unknown_individuals` once the template fixes in `docs/irp-template-discrepancies.md` are decided.
+Add `records_retention`, `notice_contents` and `notice_unknown_individuals` once the template fixes in `docs/irp-template-discrepancies.md` are decided. The bank was trimmed to 15 questions on 2026-11-02 to keep it short, so each one should replace an existing question rather than add to the total.

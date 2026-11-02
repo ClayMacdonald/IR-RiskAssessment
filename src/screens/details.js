@@ -39,7 +39,7 @@ export function renderDetails({ state, go }) {
           <div class="field field-full">
             <label for="role">Your role</label>
             <select id="role" name="role" required aria-describedby="role-hint">${roleOptions(d.role)}</select>
-            <p class="field-hint" id="role-hint">For CSIRT members and firm leadership. ${count} questions, about 15 minutes.</p>
+            <p class="field-hint" id="role-hint">For CSIRT members and firm leadership. ${count} questions, about 10 minutes.</p>
           </div>
         </div>
         <p class="privacy-row">${icon('lock', 16)}<span>Your answers stay on this device. Before you download your report, the next screens show exactly what is sent to AdvisorDefense.</span></p>

@@ -1,10 +1,6 @@
 {
   "status": "DRAFT for content review. CSIRT only. Written against the AdvisorDefense 2026 IRP template (version 1.0) and the rule text in SEC Release No. 34-100155 (May 16, 2024). See sources.md and docs/question-review.md.",
   "facts": {
-    "csirtLead": "CSIRT Lead",
-    "secondaryLead": "Secondary Lead",
-    "level1Response": "60 minutes",
-    "level1Updates": "every hour",
     "carrier": "the firm's cyber insurance carrier"
   },
   "sections": [
@@ -58,24 +54,6 @@
     }
   ],
   "questions": [
-    {
-      "id": "roles_lead_unavailable",
-      "section": 1,
-      "type": "knowledge",
-      "title": "When both leads are out",
-      "question": "During an incident, neither the {{csirtLead}} nor the {{secondaryLead}} can be reached. Under your IRP, who leads the response?",
-      "options": [
-        { "label": "Any CSIRT member may take the lead, and that choice is recorded in the incident log", "correct": true },
-        { "label": "The response waits until one of the two leads can be reached and approves it" },
-        { "label": "AdvisorDefense takes the lead and makes every decision on the firm's behalf" },
-        { "label": "The first employee who noticed the incident leads until a lead is reachable" }
-      ],
-      "explanation": "Appendix D says the {{secondaryLead}} steps in when the {{csirtLead}} is unavailable. If both are unavailable, any CSIRT member may assume the lead, and the selection is documented in the incident log.",
-      "irp_ref": "Appendix D CSIRT Roles and Responsibilities",
-      "regsp_ref": "17 CFR 248.30(a)(3): response program reasonably designed to detect, respond to and recover from unauthorized access",
-      "tie_in": "A clear line of succession means the response program still runs when key people are away.",
-      "mapped_service": "Incident Response Risk Assessment"
-    },
     {
       "id": "roles_annual_review",
       "section": 1,
@@ -135,7 +113,7 @@
       "section": 2,
       "type": "knowledge",
       "title": "How fast staff must report",
-      "question": "Under your IRP, how quickly must staff report a possible incident to the CSIRT, and why?",
+      "question": "Under your IRP, how quickly must staff report a possible incident to the CSIRT?",
       "options": [
         { "label": "As soon as they become aware, because the client notice clock can start at discovery", "correct": true },
         { "label": "By the end of the business day, so the CSIRT can review reports in a batch" },
@@ -146,42 +124,6 @@
       "irp_ref": "Appendix E, question 3; Section 2.5 Incident Handling Standard",
       "regsp_ref": "17 CFR 248.30(a)(4)(iii): client notice due as soon as practicable, no later than 30 days after becoming aware of unauthorized access",
       "tie_in": "The 30-day client notice clock runs from when the firm becomes aware. Every day of delayed internal reporting uses up that time.",
-      "mapped_service": "Incident Response Risk Assessment"
-    },
-    {
-      "id": "crit_level1_response",
-      "section": 3,
-      "type": "knowledge",
-      "title": "Level 1 response time",
-      "question": "Under your IRP, how quickly must the CSIRT begin responding to a Level 1 incident, and how often must it send status updates?",
-      "options": [
-        { "label": "Within {{level1Response}}, with status updates {{level1Updates}}", "correct": true },
-        { "label": "Within 4 hours, with status updates every 2 hours" },
-        { "label": "Within 24 hours, with daily status updates" },
-        { "label": "Within 48 hours, with daily status updates" }
-      ],
-      "explanation": "Level 1 incidents affect critical systems or information and could impact revenue or clients, such as a breach of sensitive data or an active attacker. The IRP sets an initial response within {{level1Response}} and status updates {{level1Updates}}.",
-      "irp_ref": "Section 2.4 Incident Criticality",
-      "regsp_ref": "17 CFR 248.30(a)(3)(i) and (ii): assess, contain and control an incident involving unauthorized access",
-      "tie_in": "Defined response times show the program is reasonably designed to act fast enough to contain an incident.",
-      "mapped_service": "Incident Response Risk Assessment"
-    },
-    {
-      "id": "scope_sensitive_info",
-      "section": 3,
-      "type": "knowledge",
-      "title": "Sensitive customer information",
-      "question": "While scoping an incident, which of these must the CSIRT classify as sensitive customer information under your IRP?",
-      "options": [
-        { "label": "A client's account number together with their date of birth", "correct": true },
-        { "label": "A client's name together with the city and state they live in" },
-        { "label": "The firm's public Form ADV brochure, as posted on the SEC website" },
-        { "label": "A list of the firm's office phone numbers and general email address" }
-      ],
-      "explanation": "Your IRP defines sensitive customer information to include an account number or name combined with information that could be used to get into the account, such as a date of birth, an access code or a security question answer. A Social Security number on its own also counts.",
-      "irp_ref": "Section 2.2 Sensitive Customer Information Classification and Definitions",
-      "regsp_ref": "17 CFR 248.30(d)(9): definition and examples of sensitive customer information",
-      "tie_in": "Notice duties under Reg S-P turn on sensitive customer information. Knowing it on sight is how people know an incident is serious.",
       "mapped_service": "Incident Response Risk Assessment"
     },
     {
@@ -221,34 +163,16 @@
       "mapped_service": "Incident Response Risk Assessment"
     },
     {
-      "id": "contain_outside_contacts",
-      "section": 4,
-      "type": "knowledge",
-      "title": "Media and law enforcement",
-      "question": "A reporter calls a staff member about the incident, and another staff member wants to call the police. What does your IRP require?",
-      "options": [
-        { "label": "The CSIRT decides on outside contact. Staff decline to comment, and call police only if someone is in danger", "correct": true },
-        { "label": "Staff may confirm known facts to the reporter, and anyone may call the police at any time" },
-        { "label": "Staff should deny that anything happened, and police are called only after clients are notified" },
-        { "label": "The reporter gets the names of affected clients, and the police are never contacted" }
-      ],
-      "explanation": "Appendix E tells staff not to respond to the media: they say they are not in a position to comment and refer the caller to the CSIRT. Staff contact law enforcement only when the CSIRT directs, unless someone is in personal danger or a crime was committed against a person. Section 3.5 says law enforcement is involved only with the CSIRT's knowledge and approval.",
-      "irp_ref": "Appendix E, questions 7 and 8; Section 3.5 Escalation of the Incident",
-      "regsp_ref": "none: media and law enforcement contact are IRP controls. Only a written determination by the U.S. Attorney General can delay Reg S-P client notice (248.30(a)(4)(iii)).",
-      "tie_in": "The CSIRT controls outside contact so statements do not contradict the written client notice Reg S-P requires, and so no one mistakes a police request for a lawful delay.",
-      "mapped_service": "Incident Response Risk Assessment"
-    },
-    {
       "id": "contain_money_movement",
       "section": 4,
       "type": "knowledge",
-      "title": "Money movement",
-      "question": "An incident involves a compromised email account. Which containment step does your IRP call for on money movement?",
+      "title": "Pending wires and transfers",
+      "question": "An email account is compromised. What does your IRP say about pending wires and transfers?",
       "options": [
-        { "label": "Halt transfers and verify any wire or banking change through a separate, known channel", "correct": true },
-        { "label": "Process pending wires quickly, before the attacker has a chance to change the instructions" },
-        { "label": "Approve transfers only after confirming by reply in the same email thread as the request" },
-        { "label": "Leave transfers to the custodian to handle, without mentioning the incident to them" }
+        { "label": "Pause them and verify any payment change through a separate, known channel", "correct": true },
+        { "label": "Send them quickly, before the attacker can change the instructions" },
+        { "label": "Confirm them by replying in the same email thread as the request" },
+        { "label": "Let the custodian handle them without mentioning the incident" }
       ],
       "explanation": "Section 3.4 says to consider temporarily halting fund transfers and financial transactions. The Appendix A playbooks say to stop all money movement and verify any wire, ACH or banking detail change out of band before processing.",
       "irp_ref": "Section 3.4 Containment of the Incident; Appendix A",
@@ -260,36 +184,18 @@
       "id": "contain_carrier_counsel",
       "section": 4,
       "type": "knowledge",
-      "title": "Insurance, counsel and forensics",
-      "question": "In a likely data breach, what order does your IRP set for the insurance carrier, counsel and a forensic firm?",
+      "title": "Insurance first",
+      "question": "The firm likely has a data breach. Under your IRP, who should the CSIRT call before hiring any outside help?",
       "options": [
-        { "label": "Call the carrier first, get breach counsel through the carrier, then forensics through counsel", "correct": true },
-        { "label": "Hire a forensic firm directly to save time, then tell the carrier when the invoice arrives" },
-        { "label": "Finish notifying clients first, then file the insurance claim and engage counsel if needed" },
-        { "label": "Have the IT provider investigate on its own and skip counsel to keep costs down" }
+        { "label": "The cyber insurance carrier, which assigns breach counsel", "correct": true },
+        { "label": "A forensic firm, so the investigation can start right away" },
+        { "label": "Affected clients, so they hear about it from the firm first" },
+        { "label": "The IT provider, to keep the response in-house and costs down" }
       ],
-      "explanation": "Section 3.1 says {{carrier}} must be notified promptly and third parties engaged according to the policy. Appendix C says breach counsel is engaged through the carrier's claims hotline. Section 3.6 says forensic firms should be engaged through outside counsel.",
+      "explanation": "Section 3.1 says {{carrier}} must be notified promptly and outside help engaged the way the policy requires; late notice can put coverage at risk. Appendix C says breach counsel is engaged through the carrier's claims hotline, and Section 3.6 says forensic firms should be engaged through counsel.",
       "irp_ref": "Section 3.1 Cybersecurity Insurance; Section 3.6 Involvement of Counsel; Appendix C",
       "regsp_ref": "none: insurance and legal privilege are not Reg S-P requirements. They protect coverage and the investigation record.",
-      "tie_in": "Late carrier notice can put coverage at risk. Work done through counsel can help protect privilege while the firm makes its Reg S-P notice decision.",
-      "mapped_service": "Incident Response Risk Assessment"
-    },
-    {
-      "id": "recover_after_action",
-      "section": 5,
-      "type": "knowledge",
-      "title": "After-action review",
-      "question": "Under your IRP, when must an after-action review happen?",
-      "options": [
-        { "label": "For every incident, promptly after the incident is closed", "correct": true },
-        { "label": "Only for Level 1 incidents, within 30 days after they are closed" },
-        { "label": "Only when clients were notified, after the notices have gone out" },
-        { "label": "Once a year, combined with the annual review of the IRP" }
-      ],
-      "explanation": "Section 3.10 says an after-action analysis is performed for all incidents, with meetings held promptly after the incident closes. The goal is to document what happened, capture lessons learned and identify controls that reduce the risk of a repeat.",
-      "irp_ref": "Section 3.10 Post-Incident Assessment and Enhancement",
-      "regsp_ref": "17 CFR 248.30(a)(3): recover from unauthorized access; Release No. 34-100155, section II.A: review and update procedures periodically (guidance)",
-      "tie_in": "Lessons from each incident keep the program reasonably designed over time.",
+      "tie_in": "Calling the carrier first protects coverage and gets breach counsel involved early, while the firm works toward its Reg S-P notice decision.",
       "mapped_service": "Incident Response Risk Assessment"
     },
     {
@@ -333,9 +239,9 @@
       "section": 6,
       "type": "knowledge",
       "title": "Deciding not to notify",
-      "question": "When may the firm decide that client notice is not required after unauthorized access?",
+      "question": "When may the firm decide it does not need to notify clients after unauthorized access?",
       "options": [
-        { "label": "Only if a reasonable investigation finds harm is not reasonably likely, and the basis is documented", "correct": true },
+        { "label": "Only after a reasonable investigation shows harm is unlikely, with the reasoning written down", "correct": true },
         { "label": "Whenever no client has reported any harm or suspicious activity to the firm so far" },
         { "label": "Whenever the incident happened at a vendor's system rather than at the firm itself" },
         { "label": "Whenever fewer than 500 clients are affected and the data was only viewed, not copied" }
@@ -344,42 +250,6 @@
       "irp_ref": "Section 2.6 Legal and Regulatory Notification Standard; Section 3.7 Investigation of the Incident",
       "regsp_ref": "17 CFR 248.30(a)(3)(iii) and (a)(4)(i): no-notice determination after a reasonable investigation; 17 CFR 275.204-2(a)(25)(iii): record of the basis",
       "tie_in": "The rule presumes notice. The IRP's investigation and written reasoning are what let the firm defend a decision not to notify.",
-      "mapped_service": "Incident Response Risk Assessment"
-    },
-    {
-      "id": "notice_ag_delay",
-      "section": 6,
-      "type": "knowledge",
-      "title": "Delaying notice",
-      "question": "Who can authorize a delay in Reg S-P client notice past the 30-day deadline?",
-      "options": [
-        { "label": "The U.S. Attorney General, by a written determination sent to the SEC", "correct": true },
-        { "label": "The firm's breach counsel, if the investigation needs more time" },
-        { "label": "The local police department investigating the incident, by request" },
-        { "label": "The firm's cyber insurance carrier, under the terms of the policy" }
-      ],
-      "explanation": "Reg S-P allows a delay only if the U.S. Attorney General determines that notice poses a substantial risk to national security or public safety and tells the SEC in writing. Section 4 of your IRP requires keeping any written documentation from the Attorney General about a delay.",
-      "irp_ref": "Section 2.6 Legal and Regulatory Notification Standard; Section 4 Maintenance of Books and Records",
-      "regsp_ref": "17 CFR 248.30(a)(4)(iii): Attorney General delay",
-      "tie_in": "Counsel, police and carriers cannot stop the clock. Knowing this keeps the firm from missing the deadline on someone's informal request.",
-      "mapped_service": "Incident Response Risk Assessment"
-    },
-    {
-      "id": "notice_process",
-      "section": 6,
-      "type": "readiness",
-      "title": "Notice process and owner",
-      "question": "Does the firm have a written process, with a named role responsible, for notifying affected clients within the Reg S-P deadline?",
-      "options": [
-        { "label": "Yes, it is written and a role owns it", "points": 2 },
-        { "label": "We know the deadline but have no written process or owner", "points": 1 },
-        { "label": "No or not sure", "points": 0 }
-      ],
-      "help": "The 30 days start when the firm becomes aware of unauthorized access, not when the investigation ends. Someone needs to own the clock from day one.",
-      "exam_finding": "The firm's written procedures do not define when the firm becomes aware of an incident or assign responsibility for notifying affected individuals as soon as practicable, and no later than 30 days after becoming aware of unauthorized access to or use of customer information.",
-      "irp_ref": "Section 2.6 Legal and Regulatory Notification Standard; Section 3.9.3 Responding to Privacy Breaches",
-      "regsp_ref": "17 CFR 248.30(a)(3)(iii) and (a)(4): customer notification procedures",
-      "tie_in": "The IRP is where the firm's notification procedures live. A named owner turns the rule's deadline into a task someone tracks.",
       "mapped_service": "Incident Response Risk Assessment"
     },
     {
@@ -399,24 +269,6 @@
       "regsp_ref": "17 CFR 248.30(a)(4)(iv)(A) to (H): notice contents",
       "tie_in": "A checked template is how the IRP makes the notice content Reg S-P requires ready before it is needed.",
       "mapped_service": "Incident Response Risk Assessment"
-    },
-    {
-      "id": "vendor_72_hours",
-      "section": 7,
-      "type": "knowledge",
-      "title": "Vendor breach notice",
-      "question": "Under Reg S-P, how quickly must a service provider notify the firm of a breach affecting a system that holds the firm's client information?",
-      "options": [
-        { "label": "As soon as possible, and no later than 72 hours after becoming aware of it", "correct": true },
-        { "label": "Within 30 days, the same deadline that applies to notifying clients" },
-        { "label": "Within 7 business days, once the provider has confirmed the breach" },
-        { "label": "Only once the provider decides that the firm's clients were harmed" }
-      ],
-      "explanation": "The firm's oversight must be reasonably designed to ensure providers notify the firm as soon as possible, but no later than 72 hours after becoming aware of a breach resulting in unauthorized access to a customer information system they maintain. Section 2.7 of your IRP sets the same 72-hour window.",
-      "irp_ref": "Section 2.7 Third-Party Vendor Oversight",
-      "regsp_ref": "17 CFR 248.30(a)(5)(i)(B): service provider notice to the firm",
-      "tie_in": "The firm's own 30-day clock can start when it hears from the vendor. The 72-hour limit keeps the vendor from using up that time.",
-      "mapped_service": "Vendor Risk Management"
     },
     {
       "id": "vendor_breach_response",
@@ -441,7 +293,7 @@
       "section": 7,
       "type": "readiness",
       "title": "Vendor due diligence",
-      "question": "For each vendor that can access client information, has the firm documented a security review, does it monitor the vendor over time, and does it have a written commitment to breach notice within 72 hours?",
+      "question": "Do you review and monitor every vendor that can access client information, including a commitment to tell you about a breach within 72 hours?",
       "options": [
         { "label": "Yes, for all of them", "points": 2 },
         { "label": "Some vendors, or one of these steps is missing", "points": 1 },
@@ -453,24 +305,6 @@
       "regsp_ref": "17 CFR 248.30(a)(5)(i): oversight through due diligence and monitoring, including 72-hour notice to the firm under (a)(5)(i)(B)",
       "tie_in": "Section 2.7 is where the IRP commits to vendor review and the 72-hour window. Documented diligence and written commitments are the evidence that it happens.",
       "mapped_service": "Vendor Risk Management"
-    },
-    {
-      "id": "records_determination",
-      "section": 8,
-      "type": "knowledge",
-      "title": "Records of a notice decision",
-      "question": "Which records must the firm keep about a decision on whether to notify clients?",
-      "options": [
-        { "label": "The basis for the decision, any Attorney General delay record, and a copy of any notice sent", "correct": true },
-        { "label": "Only copies of the notice letters that were mailed, since those show the firm acted" },
-        { "label": "Only the forensic firm's final report and invoice, which the carrier will require" },
-        { "label": "Nothing, if the firm decided notice was not required, since no notice was sent" }
-      ],
-      "explanation": "Section 4 of your IRP lists written documentation of any investigation and determination on whether notice is required, including the basis for the determination, any written documentation from the U.S. Attorney General about a delay, and a copy of any notice sent.",
-      "irp_ref": "Section 4 Maintenance of Books and Records",
-      "regsp_ref": "17 CFR 275.204-2(a)(25)(iii): records of notification determinations",
-      "tie_in": "These records are how an examiner tests the firm's notice decisions. The IRP's recordkeeping section is how the firm keeps them.",
-      "mapped_service": "Regulatory Exam Support"
     },
     {
       "id": "records_ready",

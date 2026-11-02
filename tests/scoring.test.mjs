@@ -45,7 +45,8 @@ test('all worst answers: both scores 0, every readiness gap and every knowledge 
   assert.equal(r.knowledge.band.label, 'Retraining needed');
   assert.equal(r.gaps.length, qs.filter((q) => q.type === 'readiness').length);
   assert.equal(r.missed.length, knowledge.length);
-  assert.deepEqual(r.missedBySection.map((g) => g.section.id), [1, 2, 3, 4, 5, 6, 7, 8]);
+  const withKnowledge = [...new Set(knowledge.map((q) => q.section))];
+  assert.deepEqual(r.missedBySection.map((g) => g.section.id), withKnowledge);
 });
 
 test('readiness uses the Reg S-P math: average of section percentages', () => {
@@ -99,13 +100,17 @@ test('band thresholds', () => {
   assert.equal(readinessBand(59).tone, 'danger');
 });
 
-test('crosswalk has one row per section, with IRP section, rule and result', () => {
+test('crosswalk has one row per section, with IRP section, rule and at least one result', () => {
   const r = buildResults({ bank, answers: allBest() }, bands);
   assert.equal(r.crosswalk.length, 8);
   for (const row of r.crosswalk) {
     assert.ok(row.irp_sections && row.regsp_requirement);
-    assert.ok(row.knowledge.total > 0, `section ${row.id} has knowledge items`);
+    assert.ok(row.knowledge || row.readiness, `section ${row.id} has a result`);
+    if (row.knowledge) assert.ok(row.knowledge.total > 0);
   }
+  // Readiness-only and knowledge-only sections both exist in the 15-question bank.
+  assert.ok(r.crosswalk.some((row) => !row.knowledge && row.readiness));
+  assert.ok(r.crosswalk.some((row) => row.knowledge && !row.readiness));
   assert.equal(r.crosswalk.find((x) => x.id === 2).readiness, null);
   assert.equal(r.crosswalk.find((x) => x.id === 1).readiness.percent, 100);
 });
@@ -128,24 +133,21 @@ test('knowledge options shuffle deterministically; readiness keeps best to worst
 // ---------- Client overrides ----------
 
 test('overrides change facts, hide, replace and add questions, and set the IRP version', () => {
-  const added = { ...base.questions.find((q) => q.id === 'records_incident_log'), id: 'acme_extra', section: 2, title: 'Extra' };
+  const added = { ...base.questions.find((q) => q.id === 'detect_what_counts'), id: 'acme_extra', section: 2, title: 'Extra' };
   const b = buildBank(
     base,
     {
       irpVersion: 'Acme IRP v2.1',
-      facts: { level1Response: '30 minutes', carrier: 'Acme Mutual' },
+      facts: { carrier: 'Acme Mutual' },
       hide: ['roles_tabletop'],
-      replace: { notice_ag_delay: { title: 'Replaced title' } },
+      replace: { notice_deadline: { title: 'Replaced title' } },
       add: [added],
     },
     config.irpVersion
   );
   assert.equal(b.irpVersion, 'Acme IRP v2.1');
   assert.ok(!b.questions.some((q) => q.id === 'roles_tabletop'));
-  assert.equal(b.questions.find((q) => q.id === 'notice_ag_delay').title, 'Replaced title');
-  const l1 = b.questions.find((q) => q.id === 'crit_level1_response');
-  assert.ok(l1.options.some((o) => o.correct && o.label.includes('30 minutes')));
-  assert.ok(l1.explanation.includes('30 minutes'));
+  assert.equal(b.questions.find((q) => q.id === 'notice_deadline').title, 'Replaced title');
   assert.ok(b.questions.find((q) => q.id === 'contain_carrier_counsel').explanation.includes('Acme Mutual'));
   const order = b.questions.map((q) => q.section);
   assert.deepEqual(order, [...order].sort((x, y) => x - y), 'added question placed in section order');
@@ -155,7 +157,7 @@ test('overrides change facts, hide, replace and add questions, and set the IRP v
 test('default bank has every placeholder filled and leaves the source untouched', () => {
   assert.equal(buildBank(base, null, config.irpVersion).irpVersion, config.irpVersion);
   assert.ok(!JSON.stringify(bank.questions).includes('{{'));
-  assert.ok(JSON.stringify(base.questions).includes('{{level1Response}}'));
+  assert.ok(JSON.stringify(base.questions).includes('{{carrier}}'));
 });
 
 test('every client override file builds a valid bank', () => {

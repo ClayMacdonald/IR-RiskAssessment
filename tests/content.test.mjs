@@ -68,13 +68,14 @@ test('no audience routing and no staff path', () => {
   assert.ok(!/staff path|Supervised Person \(staff\)/i.test(JSON.stringify(bank) + JSON.stringify(config)), 'staff path copy');
 });
 
-test('bank size: 22 to 26 questions, with knowledge and readiness in every lifecycle phase that needs them', () => {
+test('bank size: 13 to 17 questions, every lifecycle section covered, both question types well represented', () => {
   const n = bank.questions.length;
-  assert.ok(n >= 22 && n <= 26, `bank has ${n}`);
+  assert.ok(n >= 13 && n <= 17, `bank has ${n}`);
   for (const s of bank.sections) {
-    assert.ok(bank.questions.filter((q) => q.section === s.id).length >= 2, `section ${s.id} has at least two questions`);
+    assert.ok(bank.questions.filter((q) => q.section === s.id).length >= 1, `section ${s.id} has a question`);
   }
   assert.ok(bank.questions.filter((q) => q.type === 'readiness').length >= 6, 'enough readiness questions');
+  assert.ok(bank.questions.filter((q) => q.type === 'knowledge').length >= 6, 'enough knowledge questions');
 });
 
 test('every regsp_ref cites the CFR or says "none:" with a reason', () => {

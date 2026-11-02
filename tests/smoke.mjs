@@ -293,7 +293,9 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   if (expected.readiness) check(has(`PROGRAM READINESS ${expected.readiness.score} / 100 ${expected.readiness.band.label}`), `${name}: PDF Readiness score and band`);
   else check(!has('PROGRAM READINESS'), `${name}: PDF has no readiness score when none asked`);
   for (const row of expected.crosswalk) {
-    check(has(`Knowledge: ${row.knowledge.correct} of ${row.knowledge.total}`) && has(row.name), `${name}: PDF crosswalk row ${row.name}`);
+    const k = !row.knowledge || has(`Knowledge: ${row.knowledge.correct} of ${row.knowledge.total}`);
+    const r = !row.readiness || has(`Readiness: ${row.readiness.percent}%`);
+    check(has(row.name) && k && r, `${name}: PDF crosswalk row ${row.name}`);
   }
   check(qs.every((q) => has(q.title)), `${name}: PDF lists every question`);
   check(bannedHits(body).length === 0, `${name}: PDF copy clean ${bannedHits(body)}`);
