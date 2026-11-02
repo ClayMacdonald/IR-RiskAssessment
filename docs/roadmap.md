@@ -2,9 +2,9 @@
 
 Each item lists the clean path from the v1 design. None is built.
 
-## Year-over-year comparison (without storing answers)
+## Year-over-year comparison in the dashboard
 
-The completion notice already gives AdvisorDefense each person's scores, section scores and missed question IDs, dated. A small script could turn those emails (or a Resend webhook into a spreadsheet) into a per-client trend table for the annual IRP review. No server-side answer storage needed.
+Completed assessments are stored in D1 for six years (built 2026-11-02). A per-client trend view in the admin dashboard (scores and section scores by year) needs no new data, only a screen.
 
 ## Multi-year trend charts in the app
 
@@ -12,11 +12,7 @@ Let a person upload last year's PDF, or paste a short summary code printed in it
 
 ## Firm-level rollup for the CCO
 
-A CCO view that combines several people's results into one firm report. Clean path: each person's report screen offers a "summary file" (scores and missed IDs only), and the CCO drops the files into a rollup screen that builds a firm PDF on the device. Still no server storage.
-
-## Server-side storage and an admin dashboard
-
-Would change the privacy model ("answers stay in your browser") and the disclosures, and adds data retention, access control and breach exposure for AdvisorDefense itself. If wanted, use Cloudflare D1 behind the same session, store scores and missed IDs only (never answer text), add a retention period, and update the README, the report disclosure and the design-spec QA item on what is sent.
+A firm report that combines several people's results. The records are already in D1, so the admin dashboard can build it for AdvisorDefense to share with the CCO. A self-service CCO view would need per-person sign-in for the client (see "User accounts").
 
 ## User accounts
 

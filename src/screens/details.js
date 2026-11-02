@@ -42,7 +42,7 @@ export function renderDetails({ state, go }) {
             <p class="field-hint" id="role-hint">For CSIRT members and firm leadership. ${count} questions, about 10 minutes.</p>
           </div>
         </div>
-        <p class="privacy-row">${icon('lock', 16)}<span>Your answers stay on this device. Before you download your report, the next screens show exactly what is sent to AdvisorDefense.</span></p>
+        <p class="privacy-row">${icon('lock', 16)}<span>Nothing is saved until you download your report. That screen shows exactly what AdvisorDefense keeps, and for how long.</span></p>
         <div class="card-footer">
           <button type="button" class="btn btn-text" data-back>${icon('arrowLeft', 18, 2)} Back</button>
           <div class="card-footer-end">

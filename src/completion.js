@@ -1,10 +1,8 @@
-// Completion notification. When someone downloads their report, AdvisorDefense is emailed their
-// name, work email, role, both scores, section scores and the IDs of the questions they missed.
-// Their answers never leave the browser. The server adds the client from the session cookie.
-//
-// The request goes to the Pages Function at /api/completion, which verifies a Cloudflare Turnstile
-// token and sends the email (functions/api/completion.js). Notification never blocks the report:
-// any failure is swallowed and the PDF still downloads.
+// Completion. When someone downloads their report, their name, work email, role and answers are
+// sent to the Pages Function at /api/completion, which verifies a Cloudflare Turnstile token,
+// scores the answers itself, saves the record for AdvisorDefense and emails a dashboard link
+// (functions/api/completion.js). The server adds the client from the session cookie.
+// Saving never blocks the report: any failure is swallowed and the PDF still downloads.
 
 const TURNSTILE_SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
 const SITE_KEY = import.meta.env.VITE_TURNSTILE_SITE_KEY || '';

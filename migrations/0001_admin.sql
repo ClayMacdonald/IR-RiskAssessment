@@ -16,6 +16,7 @@ CREATE TABLE clients (
 );
 
 -- One row per completed assessment. Scores and the bank snapshot are computed on the server.
+-- A score is null only when the client's override hides every question of that type.
 -- Kept for the retention period in src/content/config.json (retentionYears), then purged.
 CREATE TABLE submissions (
   id               TEXT PRIMARY KEY,
@@ -26,7 +27,7 @@ CREATE TABLE submissions (
   role             TEXT NOT NULL,
   irp_version      TEXT NOT NULL,
   readiness_score  INTEGER,
-  knowledge_score  INTEGER NOT NULL,
+  knowledge_score  INTEGER,
   sections_json    TEXT NOT NULL,
   missed_json      TEXT NOT NULL,
   answers_json     TEXT NOT NULL,

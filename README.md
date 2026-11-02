@@ -9,7 +9,7 @@ Every question shows the IRP section it tests and the Reg S-P requirement that s
 
 It is for CSIRT members and firm leadership only: 15 questions (8 IRP knowledge, 7 program readiness), about 10 minutes. There is no staff path.
 
-Answers stay in the browser, in memory only. The PDF is built on the device. When someone downloads it, one Pages Function emails AdvisorDefense a summary (see [Completion notifications](#completion-notifications)). No analytics, trackers or third-party fonts. The only third-party request is Cloudflare Turnstile.
+Answers stay in the browser, in memory only, until the person downloads their report. Then the name, work email, role and answers are saved for AdvisorDefense for six years, scored on the server, and AdvisorDefense gets an email with a dashboard link (see [Completed assessments](#completed-assessments)). The PDF is built on the device. No analytics, trackers or third-party fonts. The only third-party request is Cloudflare Turnstile.
 
 Built from the Reg S-P Readiness Score app (`regsp.advisordefense.com`): same stack, design system, PDF engine, headers and copy rules. See `docs/plan.md` for the build plan and `docs/design-spec.md` for the design system.
 
@@ -154,11 +154,13 @@ To refresh the IRP text after the template changes: put the new .docx in `refere
 
 The login page cannot load the gated bundle, so `public/login/` carries copies of `brand.css`, `base.css`, `components.css`, the fonts and the logo. `npm run build` refreshes them (`npm run sync:login` does it alone), and a unit test fails if they drift.
 
-## Completion notifications
+## Completed assessments
 
-When someone clicks Download my report, the browser posts to `/api/completion`, which emails AdvisorDefense through Resend. It sends the person's name, work email, role, both scores, each section's score and the IDs of the questions they missed. The client comes from the session cookie, never from the request. Answers are never sent. The report screen says exactly this before download. One notice per visit; the PDF never waits for it, and downloads even if it fails.
+When someone clicks Download my report, the browser posts their name, work email, role and answers (question ID to option index) to `/api/completion`. The Function rebuilds that client's question bank, scores the answers itself and saves the record in D1 (`submissions`: the answers, the server's scores and section scores, and a snapshot of the bank as shown). Scores sent by a browser are ignored. Then it emails AdvisorDefense through Resend: firm, role, both scores and a link to the record in the admin dashboard. The email carries no name, email address or answers. The client comes from the session cookie, never from the request. The report screen names every field and the retention period before download. One save per visit; the PDF never waits for it, and downloads even if it fails. If the email fails, the record is still saved.
 
-Security model: POST only, allowed origins only, JSON only, 4 KB cap, a signed-in session, every field validated (question IDs against that client's bank), Turnstile (action `completion`), HTML-escaped email with no line breaks in the subject, recipient from configuration, outcome-only logs.
+Records are kept for `retentionYears` in `src/content/config.json` (6).
+
+Security model: POST only, allowed origins only, JSON only, 4 KB cap, a signed-in session, every answer validated against that client's bank (every question answered, valid option index, nothing extra), Turnstile (action `completion`), the record stored before the email, HTML-escaped email with no line breaks in the subject, recipient from configuration, outcome-only logs.
 
 ## Deploy to Cloudflare Pages
 
@@ -196,7 +198,7 @@ After any zone or deploy change, sign in, open the browser console and run `fetc
 | `TURNSTILE_SECRET_KEY` | Secret | Turnstile secret key. Sign-in refuses to run without it. |
 | `RESEND_API_KEY` | Secret | Resend key with Sending access, restricted to the sending domain |
 | `RESEND_FROM_EMAIL` | Plaintext | Sender on the verified Resend domain, for example `IRP Readiness <notify@notify.advisordefense.com>` |
-| `COMPLETION_NOTIFY_EMAIL` | Plaintext | Inbox for completion notices (comma-separated for more than one) |
+| `COMPLETION_NOTIFY_EMAIL` | Plaintext | Inbox for completion notices with the dashboard link (comma-separated for more than one). The link uses the first `ALLOWED_ORIGINS` entry. |
 | `ALLOWED_ORIGINS` | Plaintext, optional | Origins allowed to post. Default `https://irp.advisordefense.com,https://irp-assessment.pages.dev` |
 | `LOCAL_DEV` | Local only | Never set in Cloudflare. In `.dev.vars` it turns on local dev mode (no Turnstile check, session cookie without Secure). Ignored unless every allowed origin is http localhost. |
 | `DEV_API_PORT` | Local only, optional | Port for the local API (default 8799). |
@@ -205,7 +207,7 @@ After any zone or deploy change, sign in, open the browser console and run `fetc
 
 - **Resend** (every 90 days, or at once if exposed): create a new key in Resend, update `RESEND_API_KEY`, redeploy, complete a test assessment, then revoke the old key.
 - **Turnstile secret**: rotate on the widget's page in the Turnstile dashboard, update `TURNSTILE_SECRET_KEY`, redeploy, sign in to confirm.
-- **SESSION_SECRET** (yearly, or at once if exposed): set a new random value and redeploy. Everyone currently signed in is signed out; nothing else is lost because answers are never stored.
+- **SESSION_SECRET** (yearly, or at once if exposed): set a new random value and redeploy. Everyone currently signed in is signed out. Saved assessments are not affected.
 - **Access codes**: issue a new code with `npm run add-client` (same `clientId`) for each annual review, run the command it prints and send the new code. The old code stops working at once. Revoke former clients. A code that may have been shared too widely is replaced the same way.
 
 ## Design and accessibility

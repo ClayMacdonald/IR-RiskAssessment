@@ -249,7 +249,7 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   // ---------- report ----------
   await page.waitForSelector('[data-submit]');
   const notice = await page.textContent('.completion-notice');
-  for (const phrase of ['your name', 'work email', 'role', 'two scores', 'each section', 'which questions you missed', 'not your answers']) {
+  for (const phrase of ['your name', 'work email', 'role', 'answers', `${config.retentionYears} years`, 'built on your device']) {
     check(notice.includes(phrase), `${name}: disclosure names "${phrase}"`);
   }
   check(bannedHits(notice).length === 0, `${name}: disclosure copy clean`);
@@ -270,11 +270,9 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
   // ---------- completion notification ----------
   check(completions.length === 1, `${name}: exactly one completion notification (${completions.length})`);
   const sent = completions[0] || {};
-  const want = { ...completionPayload({ name: 'Jordan Example', email: 'jordan@smoketest.example', role }, expected), turnstileToken: sent.turnstileToken };
-  check(JSON.stringify(sent) === JSON.stringify(want), `${name}: notification carries exactly the disclosed fields`);
-  check(!('clientId' in sent) && !('answers' in sent), `${name}: notification has no clientId or answers`);
-  const answerText = Object.entries(answers).map(([id, i]) => qs.find((q) => q.id === id).options[i].label);
-  check(!answerText.some((t) => JSON.stringify(sent).includes(t)), `${name}: no answer text in the notification`);
+  const want = { ...completionPayload({ name: 'Jordan Example', email: 'jordan@smoketest.example', role }, bank, answers), turnstileToken: sent.turnstileToken };
+  check(JSON.stringify(sent) === JSON.stringify(want), `${name}: completion carries exactly the disclosed fields`);
+  check(!('clientId' in sent) && !('readinessScore' in sent) && !('knowledgeScore' in sent), `${name}: completion has no clientId or scores (the server scores)`);
   if (completionStatus !== 200) check(true, `${name}: report downloaded although the notification returned ${completionStatus}`);
 
   // ---------- PDF ----------

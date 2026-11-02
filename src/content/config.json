@@ -11,6 +11,7 @@
     "ready": 90,
     "refresher": 70
   },
+  "retentionYears": 6,
   "nextSteps": [
     "File this report in the firm's compliance records as evidence of IRP training and readiness review.",
     "Review every missed question with the CSIRT, using the IRP section listed for each.",

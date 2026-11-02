@@ -36,7 +36,7 @@ export function renderIntro({ state, go }) {
               <li class="stat"><span class="stat-value num">10<span class="stat-unit"> min</span></span><span class="stat-label">Approximate time</span></li>
             </ul>
             <ul class="trust-strip">
-              <li>${icon('lock', 18)} Your answers stay in your browser</li>
+              <li>${icon('lock', 18)} Shared only with AdvisorDefense</li>
               <li>${icon('document', 18)} PDF made on your device</li>
               <li>${icon('shield', 18)} Written against ${escapeHtml(bank.irpVersion)}</li>
             </ul>

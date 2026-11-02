@@ -13,9 +13,9 @@ const REPORT_CONTENTS = [
   'Findings and next steps',
 ];
 
-// Shown before download. Must name every field completionPayload() sends (see tests/smoke.mjs).
-export const DISCLOSURE =
-  'When you download, AdvisorDefense receives your name, work email, role, your two scores, your score for each section and which questions you missed (by question ID, not your answers). Your answers and the report stay on your device.';
+// Shown before download. Must name every field completionPayload() sends and the retention period
+// (see tests/smoke.mjs).
+export const DISCLOSURE = `When you download, your name, work email, role and answers are saved for AdvisorDefense for ${config.retentionYears} years, to review results with your firm and track progress at your annual IRP review. The PDF is built on your device.`;
 
 const SPINNER =
   '<svg class="spinner" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="2" stroke-dasharray="13 44" stroke-linecap="round"/></svg>';
@@ -67,16 +67,16 @@ export function renderReport({ state, go }) {
   // Bot check for the notification. Renders nothing unless Cloudflare needs the person to interact.
   const check = notificationsEnabled() ? prepareCheck(element.querySelector('[data-turnstile]')) : null;
 
-  // Notifies AdvisorDefense once per visit. Runs alongside the PDF and never blocks it.
-  function notifyOnce(results) {
+  // Saves the assessment for AdvisorDefense once per visit. Runs alongside the PDF and never blocks it.
+  function notifyOnce() {
     if (state.notified) return;
     state.notified = true;
-    submitCompletion(completionPayload(state.details, results), check);
+    submitCompletion(completionPayload(state.details, state.bank, state.answers), check);
   }
 
   async function download() {
     const results = buildResults({ bank: state.bank, answers: state.answers }, config.knowledgeBands);
-    notifyOnce(results);
+    notifyOnce();
     // jsPDF is loaded only when needed to keep the first page light.
     const { generateReport } = await import('../pdf.js');
     await generateReport(state, results);
