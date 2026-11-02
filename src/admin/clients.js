@@ -1,4 +1,5 @@
 // Clients screen: every client firm with its code status and completions, and a form to add one.
+import config from '../content/config.json';
 import { icon } from '../components/icons.js';
 import { el, escapeHtml } from '../util.js';
 import { api } from './api.js';
@@ -35,6 +36,8 @@ export function renderClients({ navigate }) {
         <p class="eyebrow">Admin</p>
         <h1>Clients</h1>
         <p class="lead">Access codes and completed assessments for each client firm.</p>
+        <p class="admin-retention">Records are kept ${config.retentionYears} years. Older records are deleted when this page opens. <a href="#/audit">Activity log</a></p>
+        <div data-purged></div>
       </div>
 
       <section class="card" aria-labelledby="add-title">
@@ -81,8 +84,11 @@ export function renderClients({ navigate }) {
 
   async function load() {
     try {
-      const { clients } = await api.clients();
+      const { clients, purged } = await api.clients();
       list.innerHTML = rows(clients);
+      if (purged?.submissions) {
+        element.querySelector('[data-purged]').innerHTML = `<p class="admin-ok" role="status">Deleted ${purged.submissions} record${purged.submissions === 1 ? '' : 's'} older than ${config.retentionYears} years.</p>`;
+      }
     } catch (err) {
       list.innerHTML = errorNotice(err.message);
     } finally {

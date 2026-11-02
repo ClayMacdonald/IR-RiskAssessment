@@ -1,4 +1,5 @@
-// GET  /api/admin/clients: every client with its code status and completion counts.
+// GET  /api/admin/clients: every client with its code status and completion counts. Opening the
+//   dashboard also runs the retention purge (functions/_lib/retention.js) first.
 // POST /api/admin/clients: creates a client and returns its access code once. Only the hash is stored.
 //
 // The middleware has verified the Cloudflare Access identity (data.adminEmail). Writes are POST
@@ -7,6 +8,7 @@ import { allowedOrigins, clean, readJson, reply } from '../../../_lib/http.js';
 import { clientProblem, createClientEntry } from '../../../_lib/session.js';
 import { clientById, upsertClientStatement } from '../../../_lib/db.js';
 import { auditStatement } from '../../../_lib/audit.js';
+import { purgeExpired } from '../../../_lib/retention.js';
 
 const ROUTE = '/api/admin/clients';
 
@@ -22,9 +24,10 @@ export async function onRequest() {
   return reply(ROUTE, 405, 'method_not_allowed', { headers: { Allow: 'GET, POST' } });
 }
 
-export async function listClients(env, data = {}) {
+export async function listClients(env, data = {}, now = new Date()) {
   if (!data.adminEmail) return reply(ROUTE, 403, 'not_admin');
   if (!env.DB) return reply(ROUTE, 500, 'not_configured');
+  const purged = await purgeExpired(env.DB, data.adminEmail, now);
   const { results } = await env.DB.prepare(
     `SELECT c.client_id, c.firm_name, c.expires, c.revoked_at, c.created_at,
             COUNT(s.id) AS completions, MAX(s.completed_at) AS last_completed_at
@@ -41,7 +44,7 @@ export async function listClients(env, data = {}) {
     completions: r.completions,
     lastCompletedAt: r.last_completed_at,
   }));
-  return reply(ROUTE, 200, 'ok', { body: { ok: true, clients } });
+  return reply(ROUTE, 200, 'ok', { body: { ok: true, clients, purged } });
 }
 
 export async function createClient(request, env, data = {}, now = new Date()) {

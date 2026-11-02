@@ -40,6 +40,7 @@ export const api = {
   client: (id) => call(`/clients/${encodeURIComponent(id)}`),
   changeClient: (id, body) => call(`/clients/${encodeURIComponent(id)}`, { method: 'POST', body }),
   submission: (id, purpose = 'view') => call(`/submissions/${encodeURIComponent(id)}${purpose === 'download' ? '?for=download' : ''}`),
+  audit: (before) => call(`/audit${before ? `?before=${before}` : ''}`),
   preview: (clientId) => call('/preview', { method: 'POST', body: { clientId } }),
   deleteSubmission: (id) => call(`/submissions/${encodeURIComponent(id)}`, { method: 'POST', body: { action: 'delete' } }),
 };

@@ -115,6 +115,13 @@
   margin-top: 8px;
 }
 
+.admin-retention {
+  margin: 12px 0 0;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--ad-text-body);
+}
+
 /* Key facts under a title. */
 .admin-facts {
   display: flex;
