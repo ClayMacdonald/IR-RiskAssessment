@@ -3,9 +3,10 @@
 // message is safe to show.
 
 export class AdminError extends Error {
-  constructor(message, status) {
+  constructor(message, status, data = {}) {
     super(message);
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -29,7 +30,7 @@ async function call(path, { method = 'GET', body } = {}) {
   }
   if (res.status === 403) throw new AdminError('Your AdvisorDefense sign-in has ended or is not allowed here. Reload the page to sign in again.', 403);
   if (res.status === 404) throw new AdminError('That record no longer exists.', 404);
-  if (!res.ok || !data.ok) throw new AdminError(data.error || 'Something went wrong. Try again.', res.status);
+  if (!res.ok || !data.ok) throw new AdminError(data.error || 'Something went wrong. Try again.', res.status, data);
   return data;
 }
 

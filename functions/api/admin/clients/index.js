@@ -5,8 +5,8 @@
 // The middleware has verified the Cloudflare Access identity (data.adminEmail). Writes are POST
 // only, from the site's own origins, JSON only, and every one writes an audit row in the same batch.
 import { allowedOrigins, clean, readJson, reply } from '../../../_lib/http.js';
-import { clientProblem, createClientEntry } from '../../../_lib/session.js';
-import { clientById, upsertClientStatement } from '../../../_lib/db.js';
+import { createClientEntry, firmProblem, freeClientId } from '../../../_lib/session.js';
+import { clientByFirmName, upsertClientStatement } from '../../../_lib/db.js';
 import { auditStatement } from '../../../_lib/audit.js';
 import { purgeExpired } from '../../../_lib/retention.js';
 
@@ -53,14 +53,18 @@ export async function createClient(request, env, data = {}, now = new Date()) {
   const { body, error } = await readJson(ROUTE, request, allowedOrigins(env));
   if (error) return error;
 
-  const input = { clientId: body.clientId, firmName: clean(body.firmName, 150) || '', expires: body.expires };
-  const problem = clientProblem(input, now.getTime());
+  // The client ID comes from the firm name. Any clientId in the body is ignored.
+  const input = { firmName: clean(body.firmName, 150) || '', expires: body.expires };
+  const problem = firmProblem(input, now.getTime());
   if (problem) return reply(ROUTE, 400, 'invalid', { body: { ok: false, error: problem } });
-  if (await clientById(env.DB, input.clientId)) {
-    return reply(ROUTE, 409, 'exists', { body: { ok: false, error: 'A client with this ID already exists. Open it to issue a new code.' } });
+  const existing = await clientByFirmName(env.DB, input.firmName);
+  if (existing) {
+    return reply(ROUTE, 409, 'exists', {
+      body: { ok: false, error: `A client named ${existing.firmName} already exists. Open it to issue a new code.`, clientId: existing.clientId },
+    });
   }
 
-  const { code, client } = await createClientEntry(input.clientId, input.firmName, input.expires);
+  const { code, client } = await createClientEntry(await freeClientId(env.DB, input.firmName), input.firmName, input.expires);
   await env.DB.batch([
     upsertClientStatement(env.DB, { ...client, actor: data.adminEmail, now }),
     auditStatement(env.DB, { actor: data.adminEmail, action: 'client_create', clientId: client.clientId, detail: { expires: client.expires }, now }),

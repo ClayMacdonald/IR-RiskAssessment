@@ -36,7 +36,8 @@ async function opensGate(e, token) {
 }
 
 const audit = async (e) => (await e.DB.prepare('SELECT actor_email, action, client_id, detail FROM audit_log ORDER BY id').all()).results;
-const NEW = { clientId: 'acme-wealth', firmName: 'Acme Wealth Partners', expires: '2099-12-31' };
+// The dashboard makes the client ID from the firm name: "Acme Wealth" becomes acme-wealth.
+const NEW = { firmName: 'Acme Wealth', expires: '2099-12-31' };
 
 test('create returns the code once, stores only its hash, and the code signs in', async () => {
   const e = env();
@@ -44,6 +45,7 @@ test('create returns the code once, stores only its hash, and the code signs in'
   assert.equal(res.status, 200);
   const body = await res.json();
   assert.match(body.code, /^[A-HJKMNP-Z2-9]{5}(-[A-HJKMNP-Z2-9]{5}){3}$/);
+  assert.equal(body.clientId, 'acme-wealth');
 
   const row = await e.DB.prepare('SELECT * FROM clients WHERE client_id = ?').bind('acme-wealth').first();
   assert.equal(row.code_hash, await hashCode(body.code));
@@ -63,9 +65,8 @@ test('create returns the code once, stores only its hash, and the code signs in'
 test('create validates input, refuses duplicates and checks the origin', async () => {
   const e = env();
   for (const bad of [
-    { ...NEW, clientId: 'Acme Wealth' },
-    { ...NEW, clientId: '-acme' },
     { ...NEW, firmName: '' },
+    { ...NEW, firmName: '   ' },
     { ...NEW, firmName: 'x'.repeat(151) },
     { ...NEW, expires: '2020-01-01' },
     { ...NEW, expires: '12/31/2099' },
@@ -73,11 +74,26 @@ test('create validates input, refuses duplicates and checks the origin', async (
     assert.equal((await createClient(post('/api/admin/clients', bad), e, ADMIN)).status, 400, JSON.stringify(bad));
   }
   assert.equal((await createClient(post('/api/admin/clients', NEW), e, ADMIN)).status, 200);
-  const dup = await createClient(post('/api/admin/clients', { ...NEW, firmName: 'Someone Else' }), e, ADMIN);
+  // Same firm name in different case: refused, with a pointer to the existing client.
+  const dup = await createClient(post('/api/admin/clients', { ...NEW, firmName: '  ACME wealth ' }), e, ADMIN);
   assert.equal(dup.status, 409);
+  assert.equal((await dup.json()).clientId, 'acme-wealth');
   const row = await e.DB.prepare('SELECT firm_name, code_version FROM clients').first();
-  assert.deepEqual({ ...row }, { firm_name: 'Acme Wealth Partners', code_version: 1 }, 'duplicate did not replace the code');
-  assert.equal((await createClient(post('/api/admin/clients', { ...NEW, clientId: 'other' }, { origin: 'https://evil.example' }), e, ADMIN)).status, 403);
+  assert.deepEqual({ ...row }, { firm_name: 'Acme Wealth', code_version: 1 }, 'duplicate did not replace the code');
+  assert.equal((await createClient(post('/api/admin/clients', { ...NEW, firmName: 'Other' }, { origin: 'https://evil.example' }), e, ADMIN)).status, 403);
+});
+
+test('the client ID comes from the firm name; a sent ID is ignored and clashes get a number', async () => {
+  const e = env();
+  const make = async (body) => (await (await createClient(post('/api/admin/clients', body), e, ADMIN)).json()).clientId;
+  assert.equal(await make({ ...NEW, firmName: 'Acme Wealth Partners, LLC', clientId: 'chosen-by-browser' }), 'acme-wealth-partners-llc');
+  assert.equal(await make({ ...NEW, firmName: 'Acme Wealth Partners LLC' }), 'acme-wealth-partners-llc-2');
+  assert.equal(await make({ ...NEW, firmName: 'Acme Wealth Partners (LLC)' }), 'acme-wealth-partners-llc-3');
+  assert.equal(await make({ ...NEW, firmName: '&&&' }), 'client');
+  assert.equal(await make({ ...NEW, firmName: 'X' }), 'client-2');
+  const long = await make({ ...NEW, firmName: 'Very Long Firm Name '.repeat(6) });
+  assert.ok(long.length <= 63 && /^[a-z0-9][a-z0-9-]+[a-z0-9]$/.test(long), long);
+  assert.equal(await make({ ...NEW, firmName: 'Very Long Firm Name '.repeat(6) + 'Two' }), `${long}-2`);
 });
 
 test('a new code ends the old code and its sessions', async () => {
@@ -127,7 +143,7 @@ test('client view lists completions and is audited; unknown clients and actions 
   await createClient(post('/api/admin/clients', NEW), e, ADMIN);
   const res = await getClient(e, ADMIN, 'acme-wealth');
   const body = await res.json();
-  assert.equal(body.client.firmName, 'Acme Wealth Partners');
+  assert.equal(body.client.firmName, 'Acme Wealth');
   assert.deepEqual(body.submissions, []);
   assert.equal((await audit(e)).at(-1).action, 'client_view');
   assert.equal((await getClient(e, ADMIN, 'nobody')).status, 404);

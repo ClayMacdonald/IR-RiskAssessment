@@ -34,17 +34,6 @@ export function oneYearFromToday() {
   return new Date(Date.now() + 365 * 24 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-// A suggested client ID from a firm name: "Acme Wealth Partners, LLC" becomes "acme-wealth-partners-llc".
-export function slugify(name) {
-  return String(name)
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 63)
-    .replace(/-+$/, '');
-}
-
 // The one-time code panel shown after creating a client or issuing a new code.
 export function codePanel(firmName, code) {
   return `

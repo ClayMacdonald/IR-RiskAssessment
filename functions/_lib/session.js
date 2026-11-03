@@ -152,10 +152,36 @@ export const FIRM_NAME_MAX = 150;
 
 export function clientProblem({ clientId, firmName, expires }, now = Date.now()) {
   if (!CLIENT_ID_RE.test(clientId || '')) return 'Client ID: 2 to 63 lowercase letters, digits and dashes, starting with a letter or digit.';
+  return firmProblem({ firmName, expires }, now);
+}
+
+// The firm name and expiry checks alone, for the admin dashboard, which makes the client ID itself.
+export function firmProblem({ firmName, expires }, now = Date.now()) {
   if (typeof firmName !== 'string' || !firmName.trim() || firmName.length > FIRM_NAME_MAX) return `Firm name: 1 to ${FIRM_NAME_MAX} characters.`;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(expires || '') || Number.isNaN(Date.parse(`${expires}T00:00:00Z`))) return 'Expiry: a valid date (YYYY-MM-DD).';
   if (Date.parse(`${expires}T23:59:59Z`) < now) return 'Expiry: a date that has not passed.';
   return null;
+}
+
+// A client ID from a firm name: "Acme Wealth Partners, LLC" becomes "acme-wealth-partners-llc".
+export function slugify(name, max = 63) {
+  return String(name)
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, max)
+    .replace(/-+$/, '');
+}
+
+// The first free client ID for a firm name: the slug, then slug-2, slug-3 and so on.
+export async function freeClientId(db, firmName) {
+  let base = slugify(firmName, 59);
+  if (base.length < 2) base = 'client';
+  for (let n = 1; ; n++) {
+    const id = n === 1 ? base : `${base}-${n}`;
+    if (!(await clientById(db, id))) return id;
+  }
 }
 
 // A new code for a client. Returns { code, client }, where client holds only the code's hash.

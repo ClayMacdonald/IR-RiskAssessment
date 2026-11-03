@@ -7,7 +7,7 @@ A password-protected assessment for AdvisorDefense clients at `irp.advisordefens
 
 Every question shows the IRP section it tests and the Reg S-P requirement that section satisfies, so the client sees that their IRP is how they meet Reg S-P. It supports the **Incident Response Risk Assessment** service: run it after the IRP is delivered, and again at each annual IRP review. The PDF is a dated training and readiness record for the client's compliance file.
 
-It is for CSIRT members and firm leadership only: 20 questions (12 IRP knowledge, 8 program readiness), about 13 minutes. There is no staff path.
+It is for CSIRT members and firm leadership only: 20 questions (12 IRP knowledge, 8 program readiness), about 15 minutes. There is no staff path.
 
 Answers stay in the browser, in memory only, until the person downloads their report. Then the name, work email, role and answers are saved for AdvisorDefense for six years, scored on the server, and AdvisorDefense gets an email with a dashboard link (see [Completed assessments](#completed-assessments)). The PDF is built on the device. No analytics, trackers or third-party fonts. The only third-party request is Cloudflare Turnstile.
 

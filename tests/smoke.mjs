@@ -317,7 +317,8 @@ async function run(name, { role, width, keyboard = false, plan, completionStatus
 }
 
 // ---------- admin ----------
-const ADMIN_CLIENT = { clientId: 'smoke-admin', firmName: 'Smoke Admin Advisors' };
+// The dashboard makes the client ID from the firm name.
+const ADMIN_CLIENT = { clientId: 'smoke-admin-advisors', firmName: 'Smoke Admin Advisors' };
 
 async function adminFlow() {
   const name = 'E-admin';
@@ -355,11 +356,11 @@ async function adminFlow() {
     code = await readCode();
   } else {
     await page.fill('#firmName', ADMIN_CLIENT.firmName);
-    check((await page.inputValue('#clientId')) === 'smoke-admin-advisors', `${name}: client ID suggested from the firm name`);
-    await page.fill('#clientId', ADMIN_CLIENT.clientId);
+    check((await page.locator('#clientId').count()) === 0, `${name}: no client ID field to fill in`);
     await page.click('[data-create]');
     await page.waitForSelector('.code-panel');
     code = await readCode();
+    check((await page.textContent('[data-new-client-id]')) === ADMIN_CLIENT.clientId, `${name}: client ID made from the firm name`);
     await axe('client created');
   }
   check(/^[A-HJKMNP-Z2-9]{5}(-[A-HJKMNP-Z2-9]{5}){3}$/.test(code), `${name}: access code shown once`);

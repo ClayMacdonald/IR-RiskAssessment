@@ -3,7 +3,7 @@ import config from '../content/config.json';
 import { icon } from '../components/icons.js';
 import { el, escapeHtml } from '../util.js';
 import { api } from './api.js';
-import { codePanel, errorNotice, formatDate, formatTimestamp, oneYearFromToday, slugify, statusChip, wireCopy } from './format.js';
+import { codePanel, errorNotice, formatDate, formatTimestamp, oneYearFromToday, statusChip, wireCopy } from './format.js';
 
 function rows(clients) {
   if (!clients.length) return '<p class="findings-empty">No clients yet. Add the first one above.</p>';
@@ -49,11 +49,6 @@ export function renderClients({ navigate }) {
               <input id="firmName" name="firmName" type="text" maxlength="150" autocomplete="off" required>
             </div>
             <div class="field">
-              <label for="clientId">Client ID</label>
-              <input id="clientId" name="clientId" type="text" maxlength="63" autocomplete="off" spellcheck="false" required aria-describedby="clientId-hint">
-              <p class="field-hint" id="clientId-hint">Lowercase letters, digits and dashes. Used in links and file names. It cannot be changed later.</p>
-            </div>
-            <div class="field">
               <label for="expires">Code expires</label>
               <input id="expires" name="expires" type="date" required value="${oneYearFromToday()}" aria-describedby="expires-hint">
               <p class="field-hint" id="expires-hint">The code works through the end of this day (UTC). Usually one year, to the next annual IRP review.</p>
@@ -80,7 +75,6 @@ export function renderClients({ navigate }) {
   const formStatus = element.querySelector('[data-form-status]');
   const created = element.querySelector('[data-created]');
   const createBtn = element.querySelector('[data-create]');
-  let idTouched = false;
 
   async function load() {
     try {
@@ -96,14 +90,6 @@ export function renderClients({ navigate }) {
     }
   }
 
-  // Suggest a client ID from the firm name until the admin edits it.
-  form.firmName.addEventListener('input', () => {
-    if (!idTouched) form.clientId.value = slugify(form.firmName.value);
-  });
-  form.clientId.addEventListener('input', () => {
-    idTouched = true;
-  });
-
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     formStatus.innerHTML = '';
@@ -112,19 +98,21 @@ export function renderClients({ navigate }) {
     try {
       const res = await api.createClient({
         firmName: form.firmName.value.trim(),
-        clientId: form.clientId.value.trim(),
         expires: form.expires.value,
       });
       form.reset();
       form.expires.value = oneYearFromToday();
-      idTouched = false;
       created.innerHTML = `${codePanel(res.firmName, res.code)}
+        <p class="field-hint">Client ID: <code data-new-client-id>${escapeHtml(res.clientId)}</code></p>
         <p class="admin-next"><a href="#/clients/${encodeURIComponent(res.clientId)}">Open ${escapeHtml(res.firmName)} ${icon('arrowRight', 16, 2)}</a></p>`;
       wireCopy(created);
       created.querySelector('.code-panel').focus();
       load();
     } catch (err) {
       formStatus.innerHTML = errorNotice(err.message);
+      if (err.data?.clientId) {
+        formStatus.insertAdjacentHTML('beforeend', `<p class="admin-next"><a href="#/clients/${encodeURIComponent(err.data.clientId)}">Open the existing client ${icon('arrowRight', 16, 2)}</a></p>`);
+      }
     } finally {
       createBtn.disabled = false;
     }
