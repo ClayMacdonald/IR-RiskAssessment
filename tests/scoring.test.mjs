@@ -108,11 +108,15 @@ test('crosswalk has one row per section, with IRP section, rule and at least one
     assert.ok(row.knowledge || row.readiness, `section ${row.id} has a result`);
     if (row.knowledge) assert.ok(row.knowledge.total > 0);
   }
-  // Readiness-only and knowledge-only sections both exist in the 15-question bank.
-  assert.ok(r.crosswalk.some((row) => !row.knowledge && row.readiness));
+  // Section 2 is knowledge only in the real bank.
   assert.ok(r.crosswalk.some((row) => row.knowledge && !row.readiness));
   assert.equal(r.crosswalk.find((x) => x.id === 2).readiness, null);
   assert.equal(r.crosswalk.find((x) => x.id === 1).readiness.percent, 100);
+  // No section is readiness only, so drop section 1's knowledge question to cover that case.
+  const trimmed = { ...bank, questions: bank.questions.filter((q) => !(q.section === 1 && q.type === 'knowledge')) };
+  const t = buildResults({ bank: trimmed, answers: allBest() }, bands);
+  const s1 = t.crosswalk.find((x) => x.id === 1);
+  assert.ok(!s1.knowledge && s1.readiness);
 });
 
 // ---------- Shuffling ----------

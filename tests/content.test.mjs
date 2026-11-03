@@ -68,9 +68,9 @@ test('no audience routing and no staff path', () => {
   assert.ok(!/staff path|Supervised Person \(staff\)/i.test(JSON.stringify(bank) + JSON.stringify(config)), 'staff path copy');
 });
 
-test('bank size: 13 to 17 questions, every lifecycle section covered, both question types well represented', () => {
+test('bank size: 18 to 22 questions, every lifecycle section covered, both question types well represented', () => {
   const n = bank.questions.length;
-  assert.ok(n >= 13 && n <= 17, `bank has ${n}`);
+  assert.ok(n >= 18 && n <= 22, `bank has ${n}`);
   for (const s of bank.sections) {
     assert.ok(bank.questions.filter((q) => q.section === s.id).length >= 1, `section ${s.id} has a question`);
   }

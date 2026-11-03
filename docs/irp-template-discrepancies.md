@@ -72,7 +72,7 @@ Severity: **High** (the IRP states something the rule contradicts), **Medium** (
 
 **Difference:** the duty sits with the firm's oversight, not with the vendor "complying with Reg S-P". "Within 72 hours" drops "as soon as possible". The IRP also does not say the firm must start its incident response program on receipt.
 
-**Effect:** vendor_72_hours was cut when the bank went to 15 questions (2026-11-02). vendor_diligence (readiness) asks about the 72-hour commitment using the rule's wording and cites Section 2.7.
+**Effect:** vendor_72_hours was cut when the bank went to 15 questions (2026-11-02) and left out when it went to 20 (2026-11-03). vendor_diligence (readiness) asks about the 72-hour commitment using the rule's wording and cites Section 2.7.
 
 **Recommended fix:** "The Advisor's oversight of service providers, through due diligence and monitoring, is designed to ensure each provider notifies the Advisor as soon as possible, but no later than 72 hours after becoming aware of a breach resulting in unauthorized access to a customer information system the provider maintains. On receipt, the CSIRT will initiate this IRP."
 

@@ -118,7 +118,7 @@ test('scores are computed on the server; scores sent by the browser are ignored'
   assert.equal(row.readiness_score, expected.readiness.score);
   assert.equal(row.knowledge_score, expected.knowledge.score);
   assert.equal(row.readiness_score, 100);
-  assert.equal(row.knowledge_score, Math.round((7 / 8) * 100));
+  assert.equal(row.knowledge_score, Math.round((11 / 12) * 100));
   const sections = JSON.parse(row.sections_json);
   assert.equal(sections.length, expected.crosswalk.length);
   assert.deepEqual(sections.find((s) => s.id === 6), { id: 6, readiness: 100, correct: 1, total: 2 });
