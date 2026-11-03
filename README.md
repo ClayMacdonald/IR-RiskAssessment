@@ -15,6 +15,10 @@ AdvisorDefense staff manage clients and see results in the admin dashboard at `/
 
 Built from the Reg S-P Readiness Score app (`regsp.advisordefense.com`): same stack, design system, PDF engine, headers and copy rules. See `docs/plan.md` for the build plan and `docs/design-spec.md` for the design system.
 
+## Handoff
+
+Ownership, accounts and a step-by-step setup prompt are in [`docs/handoff.md`](docs/handoff.md).
+
 ## Before launch
 
 1. Review and sign off every question in `docs/question-review.md` (regenerate with `npm run review:export`; your marks are kept).
@@ -78,6 +82,8 @@ The smoke test runs against the Pages runtime, so the access gate, the Functions
 - **Caching.** Gated responses are `Cache-Control: private` so no shared cache can serve them to someone not signed in.
 
 ### Onboard a client
+
+The usual way is the admin dashboard: Clients, Add a client. The code shows once. The script below does the same from the command line.
 
 ```
 npm run add-client acme-wealth "Acme Wealth Partners" 2027-12-31
@@ -219,7 +225,7 @@ After any zone or deploy change, sign in, open the browser console and run `fetc
 | Name | Type | Value |
 |---|---|---|
 | `NODE_VERSION` | Plaintext | `22` |
-| `DB` | D1 binding | The `irp-assessment` database (step 3). Sign-in fails closed without it. Clients are added with `npm run add-client`. |
+| `DB` | D1 binding | The `irp-assessment` database (step 3). Sign-in fails closed without it. Clients are added in `/admin/` or with `npm run add-client`. |
 | `SESSION_SECRET` | Secret | At least 32 random bytes, for example `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"` |
 | `VITE_TURNSTILE_SITE_KEY` | Plaintext | Turnstile site key (public). Read at build time by the app and at runtime by the login page. Without it, the completion notice and its disclosure are off. |
 | `TURNSTILE_SITE_KEY` | Plaintext, optional | Overrides the site key served to the login page. Normally leave unset. |
