@@ -1,3 +1,4 @@
+import config from '../content/config.json';
 import { ROLE_LABELS } from '../roles.js';
 import { icon } from '../components/icons.js';
 import { el, escapeHtml } from '../util.js';
@@ -39,7 +40,7 @@ export function renderDetails({ state, go }) {
           <div class="field field-full">
             <label for="role">Your role</label>
             <select id="role" name="role" required aria-describedby="role-hint">${roleOptions(d.role)}</select>
-            <p class="field-hint" id="role-hint">For CSIRT members and firm leadership. ${count} questions, about 15 minutes.</p>
+            <p class="field-hint" id="role-hint">For CSIRT members and firm leadership. ${count} questions, about ${config.approxMinutes} minutes.</p>
           </div>
         </div>
         <p class="privacy-row">${icon('lock', 16)}<span>Nothing is saved until you download your report. That screen shows exactly what AdvisorDefense keeps, and for how long.</span></p>
